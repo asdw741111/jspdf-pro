@@ -1,0 +1,9 @@
+.git
+node_modules
+yarn.lock
+*.log
+build-config.js
+index.html
+test
+src
+.eslintrc.js

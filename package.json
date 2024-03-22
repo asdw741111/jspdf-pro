@@ -1,0 +1,28 @@
+{
+  "name": "jspdf-pro",
+  "version": "0.1.0",
+  "description": "jspdf+html2canvas生成pdf并解决过长导致的canvas空白问题并支持自动分页、跨页处理",
+  "main": "dist/index.js",
+  "keywords": [
+    "pdf",
+    "canvas",
+    "jspdf"
+  ],
+  "repository": "https://github.com/asdw741111/jspdf-pro",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite --config build-config.js build"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "author": "chizongyang@aliyun.com",
+  "license": "MIT",
+  "dependencies": {
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.1"
+  },
+  "devDependencies": {
+    "vite": "5.1.6"
+  }
+}
