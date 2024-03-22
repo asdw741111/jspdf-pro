@@ -86,12 +86,23 @@ class Html2Pdf {
     this.#controlClass[type] = value
     return this
   }
-
+  /**
+   * 设置在pdf中的宽度，应当小于595.266(即A4尺寸pdf宽度像素)，如果小于最大宽度会居中显示
+   * @param {number} width 宽度, 默认550
+   * @returns this
+   */
   contentWidth (width) {
+    if (width < 1 || width > A4_WIDTH) {
+      throw new Error("宽度应当小于" + A4_WIDTH)
+    }
     this.#data.contentWidth = width
     return this
   }
-
+  /**
+   * 设置页眉
+   * @param {HTMLElement} header 页眉元素
+   * @returns this
+   */
   header (header) {
     this.#data.header = header
     return this
@@ -99,7 +110,7 @@ class Html2Pdf {
   /**
    * 设置页脚
    * @param {HTMLElement} footer footer
-   * @param {{pageNumSelector: string, pageTotalSelector: string, skipPage: number}} opt 配置
+   * @param {{pageNumSelector: string, pageTotalSelector: string, skipPage: number}} opt 配置,skipPage=要跳过的页数(不渲染页脚), pageNumSelector当前页选择器, pageTotalSelector总页码选择器
    * @returns this
    */
   footer (footer, opt = {}) {

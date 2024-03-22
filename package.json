@@ -8,7 +8,10 @@
     "canvas",
     "jspdf"
   ],
-  "repository": "https://github.com/asdw741111/jspdf-pro",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/asdw741111/jspdf-pro"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite --config build-config.js build"
@@ -18,6 +21,9 @@
   },
   "author": "chizongyang@aliyun.com",
   "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/asdw741111/jspdf-pro/issues"
+  },
   "dependencies": {
     "html2canvas": "^1.4.1",
     "jspdf": "^2.5.1"
