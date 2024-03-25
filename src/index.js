@@ -43,15 +43,18 @@ class Html2Pdf {
    *   startTime: number
    *   skipPage: number
    *   contentWidth: number
+   *   margin: {left: number, top: number, bottom: number}
    *   pageNumSelector: string
    *   pageTotalSelector: string
    *   header: HTMLElement
+   *   headerSkip: number
    *   footer: HTMLElement
    *   canvasHeight: {[any]: number}
    * }}
    */
   #data = {
     skipPage: 0,
+    headerSkip: 0,
     pageNumSelector: `.${FOOTER_PAGE_NOW_CLASS}`,
     pageTotalSelector: `.${FOOTER_PAGE_TOTAL_CLASS}`,
     pdf: undefined,
@@ -59,6 +62,7 @@ class Html2Pdf {
     startTime: 0,
     contentWidth: 550,
     canvasHeight: {},
+    margin: {left: (A4_WIDTH - 550) / 2, top: 0,bottom: 0},
   }
   /**
    * @private
@@ -96,21 +100,57 @@ class Html2Pdf {
       throw new Error("宽度应当小于" + A4_WIDTH)
     }
     this.#data.contentWidth = width
+    this.#data.margin.left = (A4_WIDTH - width) / 2
+    return this
+  }
+  /**
+   * 设置边距，如果只有left或right其中一个则宽度以contentWidth(width)为准并计算右边距。如果left right都有则自动计算内容宽度。上下边距默认0
+   * @param {object} param 边距 单位像素
+   * @param {"pdf"|"html"} param.unitMode 单位模式 pdf或者html，默认pdf
+   * @param {number} param.left 左边距
+   * @param {number} param.right 右边距
+   * @param {number} param.top 上边距
+   * @param {number} param.bottom 下边距
+   */
+  margin ({left, right, top, bottom, unitMode = "pdf"}) {
+    if (typeof(left) === "number" && typeof(right) === "number") {
+      this.#data.margin.left = left
+      this.#data.contentWidth = A4_WIDTH - left - right
+    } else if (typeof(left) === "number") {
+      this.#data.margin.left = left
+    } else if (typeof(right) === "number") {
+      this.#data.margin.left = A4_WIDTH - right - this.#data.contentWidth
+    }
+    if (typeof(top) === "number") {
+      this.#data.margin.top = top
+    }
+    if (typeof(bottom) === "number") {
+      this.#data.margin.bottom = bottom
+    }
     return this
   }
   /**
    * 设置页眉
    * @param {HTMLElement} header 页眉元素
+   * @param {object} opt 配置
+   * @param {number} opt.skipPage 要跳过的页数(不渲染页眉)，跳过前几页
    * @returns this
    */
-  header (header) {
+  header (header, opt = {}) {
+    const { skipPage } = opt
     this.#data.header = header
+    if (typeof(skipPage) === "number") {
+      this.#data.headerSkip = skipPage
+    }
     return this
   }
   /**
    * 设置页脚
    * @param {HTMLElement} footer footer
-   * @param {{pageNumSelector: string, pageTotalSelector: string, skipPage: number}} opt 配置,skipPage=要跳过的页数(不渲染页脚), pageNumSelector当前页选择器, pageTotalSelector总页码选择器
+   * @param {object} opt 配置
+   * @param {string} opt.pageNumSelector pageNumSelector当前页选择器
+   * @param {string} opt.pageTotalSelector 总页码选择器
+   * @param {number} opt.skipPage 要跳过的页数(不渲染页脚)
    * @returns this
    */
   footer (footer, opt = {}) {
@@ -121,7 +161,7 @@ class Html2Pdf {
     if (pageTotalSelector) {
       this.#data.pageTotalSelector = pageTotalSelector
     }
-    if (skipPage) {
+    if (typeof(skipPage) === "number") {
       this.#data.skipPage = skipPage
     }
     this.#data.footer = footer
@@ -130,7 +170,7 @@ class Html2Pdf {
   /**
    * 获取元素的canvas高度
    * @param {HTMLElement} element 当前元素
-   * @returns 高度
+   * @returns {Promise<number>} 高度
    */
   async getElementCanvasHeight (element) {
     if (!element) return 0
@@ -207,16 +247,16 @@ class Html2Pdf {
     }
 
     // 页脚元素 经过转换后在PDF页面的高度 TODO 这里需要缓存footer和header高度，避免重复计算，对性能影响很大
-    const footerHeight = await this.getElementCanvasHeight(footer),
-      headerHeight = await this.getElementCanvasHeight(header)
+    const footerHeight = (await this.getElementCanvasHeight(footer) * rate),
+      headerHeight = (await this.getElementCanvasHeight(header) * rate)
 
-    // 距离PDF左边的距离，/ 2 表示居中
-    const baseX = (A4_WIDTH - contentWidth) / 2 // 预留空间给左边
-    // 距离PDF 页眉和页脚的间距， 留白留空 15
-    const baseY = 0
+    // 距离PDF左边的距离
+    const baseX = this.#data.margin.left
+    // 顶部距离
+    const baseY = this.#data.margin.top
 
     // 出去页头、页眉、还有内容与两者之间的间距后 每页内容的实际高度
-    const originalPageHeight = (A4_HEIGHT - footerHeight - headerHeight - 2 * baseY)
+    const originalPageHeight = (A4_HEIGHT - footerHeight - headerHeight - baseY - this.#data.margin.bottom)
     // 计算pdf中高度差值
     if (baseTop + 100 > originalPageHeight) {
       baseTop = 0
@@ -258,7 +298,7 @@ class Html2Pdf {
     }
 
     // 每一页的分页坐标， PDF高度， 初始值为根元素距离顶部的距离
-    const elementTop = getElementTop(element), pages = [baseTop]
+    const elementTop = getElementTop(element), pages = [baseTop + headerHeight + baseY]
 
     /**
      * 获取元素距离网页顶部的距离
@@ -350,36 +390,37 @@ class Html2Pdf {
     for (let i = 0; i < pages.length; ++i) {
       const needOffset = baseTop && i === 0
       // 只有第一页且有baseTop才需要偏移
-      const imgOffSet = needOffset ? baseTop : 0
-      // console.log(`SECTION ${element.classList} 共${pages.length}页， 生成第${i + 1}页, 距离页面顶部 ${pages[i]}`)
+      const imgOffSet = needOffset ? (baseTop + headerHeight + baseY) : 0
       // 根据分页位置新增图片
       addImage(baseX, needOffset ? imgOffSet : baseY + headerHeight - pages[i], pdf, data, width, height)
       // 将 内容 与 页眉之间留空留白的部分进行遮白处理
-      if (header && !needOffset) {
-        addBlank(0, headerHeight, A4_WIDTH, baseY, pdf)
+      if (baseY) {
+        addBlank(0, pdf.getNumberOfPages() > this.#data.headerSkip ? headerHeight : 0, A4_WIDTH, baseY, pdf)
       }
       // 将 内容 与 页脚之间留空留白的部分进行遮白处理
-      if (footer && !needOffset) {
-        addBlank(0, A4_HEIGHT - baseY - footerHeight, A4_WIDTH, baseY, pdf)
+      if (this.#data.margin.bottom) {
+        addBlank(0, A4_HEIGHT - this.#data.margin.bottom - (
+          pdf.getNumberOfPages() > this.#data.skipPage ? footerHeight : 0)
+        , A4_WIDTH, this.#data.margin.bottom, pdf)
       }
       // 对于除最后一页外，对 内容 的多余部分进行遮白处理
       if (i < pages.length - 1) {
         // 获取当前页面需要的内容部分高度
         const imageHeight = needOffset ? pages[1] : pages[i + 1] - pages[i]
         // 对多余的内容部分进行遮白
-        const blankTopBase = baseY + imageHeight + headerHeight
+        const blankTopBase = baseY + imageHeight + headerHeight + 1
         if (needOffset) {
-          addBlank(0, imgOffSet + blankTopBase, A4_WIDTH, A4_HEIGHT - (imageHeight) - imgOffSet, pdf)
+          addBlank(0, baseTop + blankTopBase, A4_WIDTH, A4_HEIGHT - (imageHeight) - imgOffSet, pdf)
         } else {
           addBlank(0, blankTopBase, A4_WIDTH, A4_HEIGHT - (imageHeight), pdf)
         }
       }
       // 添加页眉
-      if (header && !needOffset) {
+      if (header && pdf.getNumberOfPages() > this.#data.headerSkip) {
         await addHeader(header, pdf, A4_WIDTH)
       }
       // 添加页脚
-      if (footer && !needOffset && pdf.getNumberOfPages() > this.#data.skipPage) {
+      if (footer && pdf.getNumberOfPages() > this.#data.skipPage) {
         await addFooter(this.#data.totalPage - this.#data.skipPage, pdf.getNumberOfPages() - this.#data.skipPage, footer, pdf, A4_WIDTH, this.#data.pageNumSelector, this.#data.pageTotalSelector)
       }
       if (this.#progressCallback) {
