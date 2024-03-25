@@ -481,6 +481,7 @@ class Html2Pdf {
   /**
    * 执行渲染
    * @param {boolean} force 是否强制渲染，如果执行过一次render需要重新渲染到pdf则设置为true
+   * @returns Promise<Html2Pdf>
    */
   async render (force = false) {
     if (this.#data.rendered && !force) {
@@ -508,6 +509,7 @@ class Html2Pdf {
     // eslint-disable-next-line no-console
     console.log("导出用时", Math.floor(durationTime / 1000) + "s", durationTime)
     this.#data.rendered = true
+    return this
   }
 }
 /**

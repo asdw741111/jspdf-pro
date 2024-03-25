@@ -10,5 +10,5 @@ document.getElementById("export").onclick = () => {
     .setClassControlFilter("isLeafWithoutDeepFilter", (v) => ["el-table__row", "ant-table-row"].includes(v))
     .onProgress((page, total) => {
       console.log("progress", page, total)
-    }).toPdf()
+    }).render().then((r) => r.getPDF().save("save.pdf"))
 }

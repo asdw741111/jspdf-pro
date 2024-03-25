@@ -22,7 +22,7 @@ yarn add jspdf-pro
 通过`createPDF`方法创建导出pdf实例，并进行配置后执行`toPdf`导出文件
 ```js
 import { createPDF } from "jspdf-pro"
-// 导出
+// 渲染pdf并导出文件
 document.getElementById("export").onclick = () => {
   createPDF(document.getElementById("pdf"))
     .forcePageTotal(true)
@@ -33,6 +33,12 @@ document.getElementById("export").onclick = () => {
     .onProgress((page, total) => {
       console.log("progress", page, total)
     }).toPdf("这是文件名.pdf")
+}
+
+// 只渲染pdf并获取jsPDF实例
+document.getElementById("export").onclick = () => {
+  createPDF(document.getElementById("pdf"))
+    .render().then((obj) => obj.getPDF().save("save.pdf"))
 }
 ```
 
