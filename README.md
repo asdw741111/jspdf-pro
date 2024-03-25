@@ -44,10 +44,19 @@ pdf实例方法说明
 - `setClassControlFilter` 设置用于控制的class， 包括另起一页、整体跨页、整体不考虑跨页(不需要遍历子元素提高导出速度)，详见方法说明
 - `onProgress` 进度回调，每页渲染后回调一次，包含当前页数也总页数，页数不受`skipPage`影响
 - `toPdf` 导出pdf
-- `aliaClass` 进行样式控制的class别名，包含跨页、分页、整体不需要深度遍历等
+- `aliaClass` 进行样式控制的class别名，包含跨页、分页、整体不需要深度遍历等，默认class详见[PDF控制class](#pdf控制class)
 - `margin` 单独设置上下左右边距，边距默认为0，如果不设置左右边距会根据`contentWidth`自动计算内容居中。可以只设置`left`和`contentWidth`自动计算右边距
 - `render` 手动执行pdf渲染，参数force用于配置是否重新渲染
 - `getPDF` 获取jspdf对象实例
+
+### PDF控制class
+支持通过html的`class`来控制特殊效果，例如从此处换页、需要保持完整，完整列表如下
+- `pdf-break-page` 换页，该元素从新的一页开始，如果是第一页的第一个元素则无效
+- `pdf-not-calc-height` 不需要深度遍历计算，将该元素整体渲染，不考虑跨页，可能导致剩余高度不够剩下的部分会到下一页
+- `pdf-not-calc-height-group` 不需要深度遍历计算，将该元素整体渲染，考虑跨页，如果剩余高度不够则会整体渲染到下一页
+- `pdf-scroll` 该元素有滚动条(内部高度大于自身高度或者宽度)，会在渲染时先展开滚动区域确保完整渲染后再恢复原样
+- `pdf-footer-page` 页脚元素内的当前页元素，在渲染页脚时生效
+- `pdf-footer-page-total` 页脚元素内总页数元素，在渲染页脚时生效
 
 ## 生成PDF样式问题汇总
 ### 1. z-index无效
