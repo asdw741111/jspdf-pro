@@ -26,7 +26,9 @@ import { createPDF } from "jspdf-pro"
 document.getElementById("export").onclick = () => {
   createPDF(document.getElementById("pdf"))
     .forcePageTotal(true)
+    .margin({left: 40, top: 40, bottom: 20})
     .footer(document.getElementById("footer"), {skipPage: 1})
+    .header(document.getElementById("header"), {skipPage: 1})
     .setClassControlFilter("isLeafWithoutDeepFilter", (v) => ["el-table__row", "ant-table-row"].includes(v))
     .onProgress((page, total) => {
       console.log("progress", page, total)
@@ -37,12 +39,15 @@ document.getElementById("export").onclick = () => {
 pdf实例方法说明
 - `forcePageTotal` 强制获取总页数, 用于需要设置页脚并且导出区域超出canvas最大高度的情况
 - `contentWidth` 设置pdf宽度, 根据A4尺寸应当小于`595.266`, 默认`550`
-- `header` 设置页眉元素
-- `footer` 设置页脚元素。可选参数：{skipPage: 要跳过的页数，例如第一页是封面，第二页是目录，从第三页开始页脚显示则设置2}
+- `header` 设置页眉元素。可选参数：{skipPage: 要跳过的页数，例如第一页是封面，第二页是目录，从第三页开始页脚显示则设置2}
+- `footer` 设置页脚元素。可选参数：{skipPage: 要跳过的页数，例如第一页是封面，第二页是目录，从第三页开始页脚显示则设置2, pageNumSelector: 当前页选择器, pageTotalSelector: 总页码选择器}
 - `setClassControlFilter` 设置用于控制的class， 包括另起一页、整体跨页、整体不考虑跨页(不需要遍历子元素提高导出速度)，详见方法说明
 - `onProgress` 进度回调，每页渲染后回调一次，包含当前页数也总页数，页数不受`skipPage`影响
 - `toPdf` 导出pdf
 - `aliaClass` 进行样式控制的class别名，包含跨页、分页、整体不需要深度遍历等
+- `margin` 单独设置上下左右边距，边距默认为0，如果不设置左右边距会根据`contentWidth`自动计算内容居中。可以只设置`left`和`contentWidth`自动计算右边距
+- `render` 手动执行pdf渲染，参数force用于配置是否重新渲染
+- `getPDF` 获取jspdf对象实例
 
 ## 生成PDF样式问题汇总
 ### 1. z-index无效

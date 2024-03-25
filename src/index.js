@@ -465,6 +465,27 @@ class Html2Pdf {
    * @returns 导出
    */
   async toPdf (fileName) {
+    await this.render()
+    return this.#data.pdf.save(!fileName ? "导出.pdf" : (fileName.endsWith(".pdf") ? fileName : fileName + ".pdf"))
+  }
+  styleCheck () {
+    // pass 检查样式是否有需要调整的
+  }
+  /**
+   * 获取pdf实例
+   * @returns pdf实例
+   */
+  getPDF () {
+    return this.#data.pdf
+  }
+  /**
+   * 执行渲染
+   * @param {boolean} force 是否强制渲染，如果执行过一次render需要重新渲染到pdf则设置为true
+   */
+  async render (force = false) {
+    if (this.#data.rendered && !force) {
+      throw new Error("已经执行过渲染过, 如果需要重新渲染设置参数force=true")
+    }
     this.assertExport()
     // jsPDFs实例
     const pdf = new jsPDF({
@@ -486,10 +507,7 @@ class Html2Pdf {
     const durationTime = Date.now() - this.#data.startTime
     // eslint-disable-next-line no-console
     console.log("导出用时", Math.floor(durationTime / 1000) + "s", durationTime)
-    return pdf.save(!fileName ? "导出.pdf" : (fileName.endsWith(".pdf") ? fileName : fileName + ".pdf"))
-  }
-  styleCheck () {
-    // pass 检查样式是否有需要调整的
+    this.#data.rendered = true
   }
 }
 /**
