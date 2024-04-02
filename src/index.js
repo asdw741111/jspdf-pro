@@ -3,6 +3,7 @@ import {
   A4_HEIGHT, A4_WIDTH, toCanvas, BREAK_PAGE_CLASS, NORMAL_FINAL_CLASS, GROUP_FINAL_CLASS, SCROLL_CLASS, FOOTER_PAGE_NOW_CLASS, FOOTER_PAGE_TOTAL_CLASS,
   addBlank, addFooter, addHeader, addImage, getElementTop, updateNomalElPos, updateCrossPos, getMargin, isElementOverflowCanvas,
 } from "./util"
+export { getHtmlToPdfPixelRate, calcElementSizeInPDF, calcHtmlSizeByPdfSize } from "./util"
 
 /**
  * 是否包含指定class
@@ -145,7 +146,7 @@ class Html2Pdf {
     return this
   }
   /**
-   * 设置页脚
+   * 设置页脚 注意一定不要没有任何文本导致页脚高度没撑起来计算高度错误，可以随意给一个页码例如0即可
    * @param {HTMLElement} footer footer
    * @param {object} opt 配置
    * @param {string} opt.pageNumSelector pageNumSelector当前页选择器
@@ -163,6 +164,11 @@ class Html2Pdf {
     }
     if (typeof(skipPage) === "number") {
       this.#data.skipPage = skipPage
+    }
+    if (!footer) throw new Error("footer不能为空")
+    if (!footer.querySelector(this.#data.pageNumSelector) || !footer.querySelector(this.#data.pageTotalSelector)) {
+      // eslint-disable-next-line no-console
+      console.warn("页脚没有指定当前页码或总页码元素, 将不显示对应数据")
     }
     this.#data.footer = footer
     return this
@@ -182,7 +188,8 @@ class Html2Pdf {
   }
   /**
    * 设置进度回调函数
-   * @param {(pageNum: number, currentPx: number, allPx: number) => void} progressCallback 回调
+   * 如果元素高度超出canvas最大高度，并且没有设置forcePageTotal(true)则pageNum=当前渲染高度, totalPage=总高度，由于存在不跨页、换页等情况导致实际渲染高度增加，会超出总高度
+   * @param {(pageNum: number, totalPage: number) => void} progressCallback 回调
    */
   onProgress (progressCallback) {
     this.#progressCallback = typeof(progressCallback) === "function" ? progressCallback : null
@@ -232,11 +239,22 @@ class Html2Pdf {
     // const baseTop = 0
     // 一页的高度， 转换宽度为一页元素的宽度
     const { width, height, data, needSplit, } = await toCanvas(element, contentWidth)
+    if (isNaN(height)) {
+      return baseTop
+    }
+    if (element === this.#element) {
+      this.#data.totalHeight = element.clientHeight
+      this.#data.heightOffset = getElementTop(element)
+    }
     if (needSplit) {
       // 向下对子元素处理
       // eslint-disable-next-line no-console
       console.log("元素过高需要切分", height)
       const eles = element.childNodes
+      // 检查是否存在当前元素下一级子元素不是标签的情况，会导致计算出问题应当抛出异常
+      if ([...element.childNodes].find((o) => o.nodeType !== 1)) {
+        throw new Error("有超高标签下一级子元素不是标签, 请包裹标签")
+      }
       let subTop = baseTop
       for(const subDom of eles) {
         if (subDom.nodeType === 1) {
@@ -257,15 +275,6 @@ class Html2Pdf {
 
     // 出去页头、页眉、还有内容与两者之间的间距后 每页内容的实际高度
     const originalPageHeight = (A4_HEIGHT - footerHeight - headerHeight - baseY - this.#data.margin.bottom)
-    // 计算pdf中高度差值
-    if (baseTop + 100 > originalPageHeight) {
-      baseTop = 0
-      if (justCalc) {
-        this.#data.totalPage++
-      } else {
-        pdf.addPage()
-      }
-    }
 
     /**
      * 元素是否是跨域最终节点
@@ -383,12 +392,12 @@ class Html2Pdf {
       return returnValue
     }
     // 如果不需要计算总页数并且没有总页数信息，则直接设置（如果需要切分但是没有强制计算总页数则总页数会错误，用户需要设置forcePageTotal(true)）
-    if (!justCalc && !this.#data.totalPage) {
+    if (!justCalc && !this.#data.totalPage && this.#element === element) {
       this.#data.totalPage = pages.length
     }
     // 根据分页位置 开始分页
     for (let i = 0; i < pages.length; ++i) {
-      const needOffset = baseTop && i === 0
+      const needOffset = (baseTop || baseY) && i === 0
       // 只有第一页且有baseTop才需要偏移
       const imgOffSet = needOffset ? (baseTop + headerHeight + baseY) : 0
       // 根据分页位置新增图片
@@ -417,14 +426,14 @@ class Html2Pdf {
       }
       // 添加页眉
       if (header && pdf.getNumberOfPages() > this.#data.headerSkip) {
-        await addHeader(header, pdf, A4_WIDTH)
+        await addHeader(header, pdf, contentWidth)
       }
       // 添加页脚
       if (footer && pdf.getNumberOfPages() > this.#data.skipPage) {
-        await addFooter(this.#data.totalPage - this.#data.skipPage, pdf.getNumberOfPages() - this.#data.skipPage, footer, pdf, A4_WIDTH, this.#data.pageNumSelector, this.#data.pageTotalSelector)
+        await addFooter(this.#data.totalPage - this.#data.skipPage, pdf.getNumberOfPages() - this.#data.skipPage, footer, pdf, contentWidth, this.#data.pageNumSelector, this.#data.pageTotalSelector)
       }
       if (this.#progressCallback) {
-        this.triggerPageRender(height)
+        this.triggerPageRender(element, i + 1 / pages.length)
       }
       // 若不是最后一页，则分页
       if (i !== pages.length - 1) {
@@ -438,13 +447,18 @@ class Html2Pdf {
     return returnValue
   }
   /**
-   * 进度
-   * @param {number} height 当前页高度
+   * 进度 如果元素高度超出canvas最大高度，并且没有设置forcePageTotal(true)则展示高度
+   * @param {HTMLElement} ele 当前元素
+   * @param {number} currentPageRate 当前元素下分页比例，当前元素渲染当前页占
    */
-  triggerPageRender (height) {
+  triggerPageRender (ele, currentPageRate = 1) {
     const pdf = this.#data.pdf
-    this.#data.nowHeight += height
-    this.#progressCallback(pdf.getNumberOfPages(), this.#data.totalPage)
+    const nowHeight = getElementTop(ele) - this.#data.heightOffset + ele.offsetHeight * currentPageRate
+    if (this.#data.totalPage) {
+      this.#progressCallback(pdf.getNumberOfPages(), this.#data.totalPage)
+    } else {
+      this.#progressCallback(nowHeight, this.#data.totalHeight)
+    }
   }
   /**
    * 设置是否强制获取总页 默认false。仅对于超长内容有效(高度约大于3000像素的)

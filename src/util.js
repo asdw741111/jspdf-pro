@@ -104,12 +104,18 @@ export async function addHeader (header, pdf, contentWidth) {
  */
 export async function addFooter (total, pageNum, footer, pdf, contentWidth, pageNowClass, pageTotalClass) {
   const newFooter = footer.cloneNode(true)
-  newFooter.querySelector(`${pageNowClass}`).innerText = pageNum
-  newFooter.querySelector(`${pageTotalClass}`).innerText = total
+  const pageNumDom = newFooter.querySelector(`${pageNowClass}`),
+    pageTotalDom = newFooter.querySelector(`${pageTotalClass}`)
+  if (pageNumDom) {
+    pageNumDom.innerText = pageNum
+  }
+  if (pageTotalDom) {
+    pageTotalDom.innerText = total
+  }
   document.documentElement.append(newFooter)
   const { height: footerHeight, data: footerData, } = await toCanvas(newFooter, contentWidth)
   pdf.addImage(footerData, 'JPEG', 0, A4_HEIGHT - footerHeight, contentWidth, footerHeight)
-
+  document.documentElement.removeChild(newFooter)
 }
 
 /**
@@ -223,4 +229,60 @@ export const updateCrossPos = (top, {baseTop, pages, originalPageHeight, height}
     pages.push(top)
   }
   checkElementHeight(top, height, pages, originalPageHeight)
+}
+
+/**
+ * 计算页面内容导出pdf后像素比例，结果为页面像素 / pdf像素
+ * 用于针对pdf页面计算html中元素尺寸
+ * @param {object} param 参数
+ * @param {number} param.htmlContentWidth 要导出内容的页面区域宽度
+ * @param {HTMLElement} param.element 要导出内容元素 可选如果htmlContentWidth为空则根据element计算
+ * @param {number} param.pdfContentWidth 内容在pdf中的宽度。标准A4宽度是595.266像素
+ * @param {number} param.marginLeft 在pdf中左边距，注意不是HTML中的像素。标准A4宽度是595.266像素，如果未设置pdfContentWidth则根据左右边距计算
+ * @param {number} param.marginRight 在pdf中右边距，注意不是HTML中的像素。标准A4宽度是595.266像素，如果未设置pdfContentWidth则根据左右边距计算
+ */
+export const getHtmlToPdfPixelRate = ({ htmlContentWidth, element, marginLeft = 0, marginRight = 0, pdfContentWidth }) => {
+  const contentWidth = pdfContentWidth || (A4_WIDTH - marginLeft - marginRight)
+  const elementWidth = element ? element.offsetWidth : htmlContentWidth
+  if (!elementWidth) throw new Error("htmlContentWidth和element至少需要有一个")
+  const rate = contentWidth / elementWidth
+  return rate
+}
+
+/**
+ * 计算页面内容导出pdf后像素比例，结果为页面像素 / pdf像素
+ * 用于针对pdf页面计算html中元素尺寸
+ * @param {object} param 参数
+ * @param {HTMLElement} param.element 要计算的元素
+ * @param {"height"|"width"} param.type 要计算的类型 height=高度  width=宽度
+ * @param {number} param.htmlContentWidth 要导出内容的页面区域宽度
+ * @param {HTMLElement} param.pdfRootElement 要导出内容元素 可选如果htmlContentWidth为空则根据element计算
+ * @param {number} param.pdfContentWidth 内容在pdf中的宽度。标准A4宽度是595.266像素
+ * @param {number} param.marginLeft 在pdf中左边距，注意不是HTML中的像素。标准A4宽度是595.266像素，如果未设置pdfContentWidth则根据左右边距计算
+ * @param {number} param.marginRight 在pdf中右边距，注意不是HTML中的像素。标准A4宽度是595.266像素，如果未设置pdfContentWidth则根据左右边距计算
+ */
+export const calcElementSizeInPDF = ({element, type = "height", pdfRootElement, ...rest}) => {
+  const rate = getHtmlToPdfPixelRate({...rest, element: pdfRootElement})
+  if (type === "height") {
+    return element.offsetHeight * rate
+  } else {
+    return element.offsetWidth * rate
+  }
+}
+
+/**
+ * 计算页面内容导出pdf后像素比例，结果为页面像素 / pdf像素
+ * 用于针对pdf页面计算html中元素尺寸
+ * @param {object} param 参数
+ * @param {number} param.pdfSize pdf中的多少像素
+ * @param {number} param.htmlContentWidth 要导出内容的页面区域宽度
+ * @param {HTMLElement} param.element 要导出内容元素 可选如果htmlContentWidth为空则根据element计算
+ * @param {number} param.pdfContentWidth 内容在pdf中的宽度。标准A4宽度是595.266像素
+ * @param {number} param.marginLeft 在pdf中左边距，注意不是HTML中的像素。标准A4宽度是595.266像素，如果未设置pdfContentWidth则根据左右边距计算
+ * @param {number} param.marginRight 在pdf中右边距，注意不是HTML中的像素。标准A4宽度是595.266像素，如果未设置pdfContentWidth则根据左右边距计算
+ */
+export const calcHtmlSizeByPdfSize = ({pdfSize, ...rest}) => {
+  const rate = getHtmlToPdfPixelRate(rest)
+  if (!pdfSize || !rate) throw new Error("pdfSize和pdf元素相关参数必须都有")
+  return pdfSize / rate
 }
