@@ -20,20 +20,28 @@ yarn add jspdf-pro
 
 ## 使用
 通过`createPDF`方法创建导出pdf实例，并进行配置后执行`toPdf`导出文件
+
+### 基本导出
 ```js
 import { createPDF } from "jspdf-pro"
-// 渲染pdf并导出文件
-document.getElementById("export").onclick = () => {
-  createPDF(document.getElementById("pdf"))
-    .forcePageTotal(true)
-    .margin({left: 40, top: 40, bottom: 20})
-    .footer(document.getElementById("footer"), {skipPage: 1})
-    .header(document.getElementById("header"), {skipPage: 1})
-    .setClassControlFilter("isLeafWithoutDeepFilter", (v) => ["el-table__row", "ant-table-row"].includes(v))
-    .onProgress((page, total) => {
-      console.log("progress", page, total)
-    }).toPdf("这是文件名.pdf")
-}
+// 导出 内容区域宽度默认550
+createPDF(document.getElementById("pdf")).toPdf("这是文件名.pdf")
+```
+
+### 带页眉页脚导出
+```js
+import { createPDF } from "jspdf-pro"
+// 渲染pdf并导出文件 带页眉和页脚
+createPDF(document.getElementById("pdf"))
+  .forcePageTotal(true)
+  .margin({left: 40, top: 40, bottom: 20})
+  .footer(document.getElementById("footer"), {skipPage: 1})
+  .header(document.getElementById("header"), {skipPage: 1})
+  .setClassControlFilter("isLeafWithoutDeepFilter", (v) => ["el-table__row", "ant-table-row"].includes(v)) // 针对element-ui和antd库的表格行样式做跨页处理
+  .onProgress((page, total) => {
+    // 如果高度超出canvas最大高度page=当前渲染元素到顶部的距离, total=element总高度。如果设置了forcePageTotal(true)则是页数
+    console.log("进度", `${(page / total * 100).toFixed(1)}%`)
+  }).toPdf("这是文件名.pdf")
 
 // 只渲染pdf并获取jsPDF实例
 document.getElementById("export").onclick = () => {
@@ -41,6 +49,23 @@ document.getElementById("export").onclick = () => {
     .render().then((obj) => obj.getPDF().save("save.pdf"))
 }
 ```
+
+### 工具函数
+```js
+import { calcElementSizeInPDF, calcHtmlSizeByPdfSize, getHtmlToPdfPixelRate} from "jspdf-pro"
+
+// 根据要再pdf中的尺寸计算在html中应当是多少像素，pdfSize=在pdf中的像素数
+const htmlHeight = calcHtmlSizeByPdfSize({
+      pdfSize: 20,
+      element: document.getElementById("pdf"),
+      marginLeft: 45, marginRight: 16,
+    })
+```
+
+函数说明
+- `calcElementSizeInPDF` 计算html元素在pdf中的像素数
+- `calcHtmlSizeByPdfSize` 根据要在pdf中渲染的像素数，计算应当在html中对应的像素数，一般用于页眉和页脚尺寸控制
+- `getHtmlToPdfPixelRate` 获取页面元素渲染到pdf中尺寸的比例
 
 pdf实例方法说明
 - `forcePageTotal` 强制获取总页数, 用于需要设置页脚并且导出区域超出canvas最大高度的情况
@@ -74,4 +99,4 @@ html2canvas在绘制div到img时忽略了z索引，只遵循div的顺序，所�
 
 ## TODO
 - [ ] 样式检查避免某些兼容问题导致导出pdf效果不一致
-- [ ] 页眉页脚如果有部分页面跳过需要特殊处理
+- [x] 页眉页脚如果有部分页面跳过需要特殊处理
