@@ -445,7 +445,7 @@ class Html2Pdf {
         await addFooter(this.#data.totalPage - this.#data.skipPage, pdf.getNumberOfPages() - this.#data.skipPage, footer, pdf, contentWidth, this.#data.pageNumSelector, this.#data.pageTotalSelector)
       }
       if (this.#progressCallback) {
-        this.triggerPageRender(element, i + 1 / pages.length)
+        this.triggerPageRender(element, (i + 1) / pages.length)
       }
       // 若不是最后一页，则分页
       if (i !== pages.length - 1) {
