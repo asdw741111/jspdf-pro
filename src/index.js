@@ -274,7 +274,17 @@ class Html2Pdf {
     const baseY = this.#data.margin.top
 
     // 出去页头、页眉、还有内容与两者之间的间距后 每页内容的实际高度
-    const originalPageHeight = (A4_HEIGHT - footerHeight - headerHeight - baseY - this.#data.margin.bottom)
+    let originalPageHeight = (A4_HEIGHT - footerHeight - headerHeight - baseY - this.#data.margin.bottom)
+
+    const triggerPageHeight = () => {
+      const _page = justCalc ? this.#data.totalPage + pages.length - 1 : pdf.getNumberOfPages()
+      const _headerHeight = this.#data.headerSkip ? _page > this.#data.headerSkip ? headerHeight : 0 : headerHeight
+      const _footerHeight = this.#data.skipPage ? _page > this.#data.skipPage ? footerHeight : 0 : footerHeight
+      const _height = A4_HEIGHT - _footerHeight - _headerHeight - baseY - this.#data.margin.bottom
+      if (_height !== originalPageHeight) {
+        originalPageHeight = _height
+      }
+    }
 
     /**
      * 元素是否是跨域最终节点
@@ -290,6 +300,7 @@ class Html2Pdf {
       const isLeafWithoutDeep = checkClass(ele, this.#filter.isLeafWithoutDeepFilter)
       return isLeafWithoutDeep || notNeedCalcTags || isLeafCrossClass
     }
+    triggerPageHeight()
     // 如果当前元素不需要向下遍历则判断高度是否超出，并且baseTop!=0的话需要换页
     if (baseTop && getIsElementCrossLeaf(element) && height + baseTop > originalPageHeight) {
       baseTop = 0
@@ -328,6 +339,7 @@ class Html2Pdf {
         const one = nodes[i]
         // eslint-disable-next-line no-continue
         if (one.nodeType !== 1) continue
+        triggerPageHeight()
         // 需要判断跨页且内部存在跨页的元素
         const isBreakPage = hasClass(one, this.#controlClass.BREAK_PAGE_CLASS)
         // 不需要计算子元素，允许跨页的
