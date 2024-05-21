@@ -252,9 +252,9 @@ class Html2Pdf {
       console.log("元素过高需要切分", height)
       const eles = element.childNodes
       // 检查是否存在当前元素下一级子元素不是标签的情况，会导致计算出问题应当抛出异常
-      if ([...element.childNodes].find((o) => o.nodeType !== 1)) {
-        throw new Error("有超高标签下一级子元素不是标签, 请包裹标签")
-      }
+      // if ([...element.childNodes].find((o) => o.nodeType !== 1)) {
+      //   throw new Error("有超高标签下一级子元素不是标签, 请包裹标签")
+      // }
       let subTop = baseTop
       for(const subDom of eles) {
         if (subDom.nodeType === 1) {
@@ -276,8 +276,12 @@ class Html2Pdf {
     // 出去页头、页眉、还有内容与两者之间的间距后 每页内容的实际高度
     let originalPageHeight = (A4_HEIGHT - footerHeight - headerHeight - baseY - this.#data.margin.bottom)
 
-    const triggerPageHeight = () => {
-      const _page = justCalc ? this.#data.totalPage + pages.length - 1 : pdf.getNumberOfPages()
+    /**
+     * 计算每一页的高度
+     * @param {number[]} elementPages 当前element的分页数据
+     */
+    const triggerPageHeight = (elementPages = [0]) => {
+      const _page = justCalc ? this.#data.totalPage + elementPages.length - 1 : pdf.getNumberOfPages()
       const _headerHeight = this.#data.headerSkip ? _page > this.#data.headerSkip ? headerHeight : 0 : headerHeight
       const _footerHeight = this.#data.skipPage ? _page > this.#data.skipPage ? footerHeight : 0 : footerHeight
       const _height = A4_HEIGHT - _footerHeight - _headerHeight - baseY - this.#data.margin.bottom
@@ -339,7 +343,7 @@ class Html2Pdf {
         const one = nodes[i]
         // eslint-disable-next-line no-continue
         if (one.nodeType !== 1) continue
-        triggerPageHeight()
+        triggerPageHeight(pages)
         // 需要判断跨页且内部存在跨页的元素
         const isBreakPage = hasClass(one, this.#controlClass.BREAK_PAGE_CLASS)
         // 不需要计算子元素，允许跨页的

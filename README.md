@@ -68,7 +68,7 @@ const htmlHeight = calcHtmlSizeByPdfSize({
 - `getHtmlToPdfPixelRate` 获取页面元素渲染到pdf中尺寸的比例
 
 pdf实例方法说明
-- `forcePageTotal` 强制获取总页数, 用于需要设置页脚并且导出区域超出canvas最大高度的情况
+- `forcePageTotal` 强制获取总页数, 用于需要设置页脚并且导出区域超出canvas最大高度的情况，注意：**如果不需要渲染总页数，则无需设置，否则会导致为了获取总页数需要提前计算一遍从而导出时间加倍**
 - `contentWidth` 设置pdf宽度, 根据A4尺寸应当小于`595.266`, 默认`550`
 - `header` 设置页眉元素。可选参数：{skipPage: 要跳过的页数，例如第一页是封面，第二页是目录，从第三页开始页脚显示则设置2}
 - `footer` 设置页脚元素。可选参数：{skipPage: 要跳过的页数，例如第一页是封面，第二页是目录，从第三页开始页脚显示则设置2, pageNumSelector: 当前页选择器, pageTotalSelector: 总页码选择器}
