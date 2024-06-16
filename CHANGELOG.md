@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.5](https://github.com/asdw741111/jspdf-pro/compare/v0.1.4...v0.1.5) (2024-06-16)
+
+
+### Features
+
+* 加入样式检测 ([dfc8799](https://github.com/asdw741111/jspdf-pro/commit/dfc8799d4d6bd1a1e0c7a5a7a86dcf7f9c04dd92))
+
 ### [0.1.4](https://github.com/asdw741111/jspdf-pro/compare/v0.1.3...v0.1.4) (2024-06-15)
 
 
