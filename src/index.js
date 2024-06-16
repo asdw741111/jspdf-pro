@@ -2,6 +2,7 @@ import jsPDF from 'jspdf'
 import {
   A4_HEIGHT, A4_WIDTH, toCanvas, BREAK_PAGE_CLASS, NORMAL_FINAL_CLASS, GROUP_FINAL_CLASS, SCROLL_CLASS, FOOTER_PAGE_NOW_CLASS, FOOTER_PAGE_TOTAL_CLASS,
   addBlank, addFooter, addHeader, addImage, getElementTop, updateNomalElPos, updateCrossPos, getMargin, isElementOverflowCanvas,
+  checkElementStyle,
 } from "./util"
 export { getHtmlToPdfPixelRate, calcElementSizeInPDF, calcHtmlSizeByPdfSize } from "./util"
 
@@ -51,6 +52,7 @@ class Html2Pdf {
    *   headerSkip: number
    *   footer: HTMLElement
    *   canvasHeight: {[any]: number}
+   *   styleCheckEnable: boolean
    * }}
    */
   #data = {
@@ -64,6 +66,7 @@ class Html2Pdf {
     contentWidth: 550,
     canvasHeight: {},
     margin: {left: (A4_WIDTH - 550) / 2, top: 0,bottom: 0},
+    styleCheckEnable: true,
   }
   /**
    * @private
@@ -107,13 +110,12 @@ class Html2Pdf {
   /**
    * 设置边距，如果只有left或right其中一个则宽度以contentWidth(width)为准并计算右边距。如果left right都有则自动计算内容宽度。上下边距默认0
    * @param {object} param 边距 单位像素
-   * @param {"pdf"|"html"} param.unitMode 单位模式 pdf或者html，默认pdf
-   * @param {number} param.left 左边距
-   * @param {number} param.right 右边距
-   * @param {number} param.top 上边距
-   * @param {number} param.bottom 下边距
+   * @param {number} [param.left] 左边距
+   * @param {number} [param.right] 右边距
+   * @param {number} [param.top] 上边距
+   * @param {number} [param.bottom] 下边距
    */
-  margin ({left, right, top, bottom, unitMode = "pdf"}) {
+  margin ({left, right, top, bottom}) {
     if (typeof(left) === "number" && typeof(right) === "number") {
       this.#data.margin.left = left
       this.#data.contentWidth = A4_WIDTH - left - right
@@ -133,8 +135,8 @@ class Html2Pdf {
   /**
    * 设置页眉
    * @param {HTMLElement} header 页眉元素
-   * @param {object} opt 配置
-   * @param {number} opt.skipPage 要跳过的页数(不渲染页眉)，跳过前几页
+   * @param {object} [opt] 配置
+   * @param {number} [opt.skipPage] 要跳过的页数(不渲染页眉)，跳过前几页
    * @returns this
    */
   header (header, opt = {}) {
@@ -148,10 +150,10 @@ class Html2Pdf {
   /**
    * 设置页脚 注意一定不要没有任何文本导致页脚高度没撑起来计算高度错误，可以随意给一个页码例如0即可
    * @param {HTMLElement} footer footer
-   * @param {object} opt 配置
-   * @param {string} opt.pageNumSelector pageNumSelector当前页选择器
-   * @param {string} opt.pageTotalSelector 总页码选择器
-   * @param {number} opt.skipPage 要跳过的页数(不渲染页脚)
+   * @param {object} [opt] 配置
+   * @param {string} [opt.pageNumSelector] pageNumSelector当前页选择器
+   * @param {string} [opt.pageTotalSelector] 总页码选择器
+   * @param {number} [opt.skipPage] 要跳过的页数(不渲染页脚)
    * @returns this
    */
   footer (footer, opt = {}) {
@@ -321,6 +323,8 @@ class Html2Pdf {
       baseTop = elementMarginTop
     }
 
+    this.styleCheck(element, true)
+
     // 每一页的分页坐标， PDF高度， 初始值为根元素距离顶部的距离
     const elementTop = getElementTop(element), pages = [baseTop + headerHeight + baseY]
 
@@ -343,6 +347,7 @@ class Html2Pdf {
         const one = nodes[i]
         // eslint-disable-next-line no-continue
         if (one.nodeType !== 1) continue
+        this.styleCheck(one)
         triggerPageHeight(pages)
         // 需要判断跨页且内部存在跨页的元素
         const isBreakPage = hasClass(one, this.#controlClass.BREAK_PAGE_CLASS)
@@ -498,8 +503,27 @@ class Html2Pdf {
     await this.render()
     return this.#data.pdf.save(!fileName ? "导出.pdf" : (fileName.endsWith(".pdf") ? fileName : fileName + ".pdf"))
   }
-  styleCheck () {
-    // pass 检查样式是否有需要调整的
+  /**
+   * 是否开启样式检查，默认开启
+   * 开启后会检查每个元素样式，如果存在页面和pdf效果不一致的会在控制台打印警告信息
+   * @param {boolean} [enable=true] 是否允许样式检查，默认开启，对导出速度稍微有一些影响
+   */
+  setStyleCheck (enable = true) {
+    this.#data.styleCheckEnable = enable
+    return this
+  }
+  /**
+   * 样式检查
+   * @private
+   * @param {HTMLElement} element 
+   * @param {boolean} [isBaseElement=false] 
+   */
+  styleCheck (element, isBaseElement) {
+    if (this.#data.styleCheckEnable) {
+      try {
+        checkElementStyle(element, isBaseElement)
+      } catch (e) {}
+    }
   }
   /**
    * 获取pdf实例

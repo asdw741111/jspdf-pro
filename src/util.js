@@ -286,3 +286,22 @@ export const calcHtmlSizeByPdfSize = ({pdfSize, ...rest}) => {
   if (!pdfSize || !rate) throw new Error("pdfSize和pdf元素相关参数必须都有")
   return pdfSize / rate
 }
+
+/**
+ * 获取元素上边距
+ * 该方法经测试对时间消耗可以忽略不计
+ * @param {HTMLElement} element 元素
+ * @param {boolean} [isBaseElement=false] 是否当前canvas根元素
+ * @returns {{top: number, bottom: number}}
+ */
+export const checkElementStyle = (element, isBaseElement = false) => {
+  const style = window.getComputedStyle(element)
+  const assertStyle = (styleName, cb, msg) => {
+    const v = style.getPropertyValue(styleName)
+    if (cb(v)) {
+      console.warn("导出PDF", "样式警告", msg, element)
+    }
+  }
+  assertStyle("z-index", (v) => v && v !== "auto" && v > 0, "z-index在PDF无效如果导出效果和页面不一致请通过顺序调整上下关系")
+  // assertStyle("margin-top", (v) => v && isBaseElement, "当前元素由于上级元素过高自动拆分导致margin-top无效")
+}
