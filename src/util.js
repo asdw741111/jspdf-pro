@@ -130,6 +130,12 @@ export async function addFooter (total, pageNum, footer, pdf, contentWidth, page
  */
 // 添加
 export function addImage (x, y, pdf, data, width, height) {
+  // 高度为0或者没有数据（宽、高为0无法渲染canvas）
+  if (!height || !data) {
+    // eslint-disable-next-line no-console
+    console.warn("元素异常 - 当前元素无法渲染canvas，尺寸信息: ", `width - ${width}, height - ${height}`, `坐标: x - ${x}, y - ${y}`)
+    return
+  }
   pdf.addImage(data, 'JPEG', x, y, width, height)
 }
 
@@ -299,6 +305,7 @@ export const checkElementStyle = (element, isBaseElement = false) => {
   const assertStyle = (styleName, cb, msg) => {
     const v = style.getPropertyValue(styleName)
     if (cb(v)) {
+      // eslint-disable-next-line no-console
       console.warn("导出PDF", "样式警告", msg, element)
     }
   }

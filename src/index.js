@@ -515,14 +515,17 @@ class Html2Pdf {
   /**
    * 样式检查
    * @private
-   * @param {HTMLElement} element 
-   * @param {boolean} [isBaseElement=false] 
+   * @param {HTMLElement} element
+   * @param {boolean} [isBaseElement=false]
    */
   styleCheck (element, isBaseElement) {
     if (this.#data.styleCheckEnable) {
       try {
         checkElementStyle(element, isBaseElement)
-      } catch (e) {}
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn("样式检查出错", e)
+      }
     }
   }
   /**

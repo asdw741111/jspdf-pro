@@ -30,6 +30,7 @@
     "jspdf": "^2.5.1"
   },
   "devDependencies": {
+    "eslint": "8",
     "typescript": "^5.4.3",
     "vite": "5.1.6"
   }
