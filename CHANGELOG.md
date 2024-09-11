@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.6](https://github.com/asdw741111/jspdf-pro/compare/v0.1.5...v0.1.6) (2024-09-11)
+
+
+### Bug Fixes
+
+* 渲染pdf元素高度0警告 ([a6341a2](https://github.com/asdw741111/jspdf-pro/commit/a6341a23e0d28202dac5ebabcac1b083c44e4e3f))
+
 ### [0.1.5](https://github.com/asdw741111/jspdf-pro/compare/v0.1.4...v0.1.5) (2024-06-16)
 
 
