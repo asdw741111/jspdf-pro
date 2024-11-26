@@ -138,6 +138,33 @@
       height: 24px;
       background-color: lightblue;
     }
+
+    .progress {
+      position: fixed;
+      top: 20px;
+      width: 200px;
+      height: 20px;
+      left: calc(50% - 100px);
+      border: 1px solid #c7c7c7;
+      border-radius: 10px;
+      background-color: #fff;
+      overflow: hidden;
+      color: #FFF;
+      display: none;
+    }
+    .progress .bar {
+      background-color: blueviolet;
+      width: 50%;
+      height: 100%;
+      transition: width 1s linear;
+    }
+    .progress .percent {
+      position: absolute;
+      top: 2px;
+      width: 100%;
+      text-align: center;
+      mix-blend-mode: difference;
+    }
   </style>
 </head>
 
@@ -191,7 +218,7 @@
                   <div class="cell">姓名</div>
                 </th>
                 <th colspan="1" rowspan="1" class="el-table_3_column_9     is-leaf el-table__cell">
-                  <div class="cell">地址</div>
+                  <div class="cell">这是很长的列名这是很长的列名这是很长的列名这是很长的列名这是很长的列名这是很长的列名这是很长的列名这是很长的列名</div>
                 </th>
               </tr>
             </thead>
@@ -283,6 +310,7 @@
       </div>
     </div>
   </div>
+  <div class="progress" id="progress"><div class="bar"></div><div class="percent">50%</div></div>
 </body>
 
 </html>

@@ -89,7 +89,9 @@ export async function toCanvas (element, width) {
  */
 export async function addHeader (header, pdf, contentWidth) {
   const { height: headerHeight, data: headerData, } = await toCanvas(header, contentWidth)
-  pdf.addImage(headerData, 'JPEG', 0, 0, contentWidth, headerHeight)
+  // 先填充空白防止左右两边留空渲染到表格等多余信息
+  addBlank(0, 0, A4_WIDTH, headerHeight, pdf)
+  pdf.addImage(headerData, 'JPEG', (A4_WIDTH - contentWidth) / 2, 0, contentWidth, headerHeight)
 }
 
 /**
@@ -114,7 +116,9 @@ export async function addFooter (total, pageNum, footer, pdf, contentWidth, page
   }
   document.documentElement.append(newFooter)
   const { height: footerHeight, data: footerData, } = await toCanvas(newFooter, contentWidth)
-  pdf.addImage(footerData, 'JPEG', 0, A4_HEIGHT - footerHeight, contentWidth, footerHeight)
+  // 先填充空白防止左右两边留空渲染到表格等多余信息
+  addBlank(0, A4_HEIGHT - footerHeight, A4_WIDTH, footerHeight, pdf)
+  pdf.addImage(footerData, 'JPEG', (A4_WIDTH - contentWidth) / 2, A4_HEIGHT - footerHeight, contentWidth, footerHeight)
   document.documentElement.removeChild(newFooter)
 }
 
