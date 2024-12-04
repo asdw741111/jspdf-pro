@@ -81,6 +81,8 @@ pdf实例方法说明
 - `render` 手动执行pdf渲染，参数force用于配置是否重新渲染
 - `getPDF` 获取jspdf对象实例
 - `setStyleCheck` 设置是否导出的时候对样式问题警告，默认警告
+- `setPageBackgroundColor` 设置页面背景色，默认白色
+- `setContentBackgroundColor` 设置内容区域背景色，不包括上下左右边距、页眉页脚，默认白色
 
 ### PDF控制class
 支持通过html的`class`来控制特殊效果，例如从此处换页、需要保持完整，完整列表如下

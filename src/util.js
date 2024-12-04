@@ -18,6 +18,18 @@ export const SCROLL_CLASS = 'pdf-scroll'
 export const FOOTER_PAGE_NOW_CLASS = 'pdf-footer-page'
 /** 页脚总页数元素对应class */
 export const FOOTER_PAGE_TOTAL_CLASS = 'pdf-footer-page-total'
+
+/**
+ * 十六进制颜色转rgb
+ * @param {string} hex 十六进制颜色
+ * @returns rgb
+ */
+const hexToRgb = (hex) => {
+  const r = parseInt(hex.substring(1, 3), 16)
+  const g = parseInt(hex.substring(3, 5), 16)
+  const b = parseInt(hex.substring(5, 7), 16)
+  return { r, g, b }
+}
 /**
  * 获取元素上边距
  * 该方法经测试对时间消耗可以忽略不计
@@ -54,15 +66,17 @@ export const isElementOverflowCanvas = (element) => getElementCanvasHeight(eleme
  * width为内容宽度
  * @param {HTMLElement} element
  * @param {number} width
+ * @param {{backgroundColor: string}} [opt] 参数
  * @returns
  */
-export async function toCanvas (element, width) {
+export async function toCanvas (element, width, opt) {
   // canvas元素
   const canvas = await html2canvas(element, {
     allowTaint: true, // 允许渲染跨域图片
     scale: window.devicePixelRatio * 2, // 增加清晰度window.devicePixelRatio * 2
     useCORS: true,// 允许跨域
     windowHeight: element.scrollHeight,
+    backgroundColor: opt?.backgroundColor, // 内容区域背景色
   })
   // 获取canavs转化后的宽度
   const canvasWidth = canvas.width
@@ -83,28 +97,29 @@ export async function toCanvas (element, width) {
 
 /**
  * 添加页眉
- * @param {HTMLElement} header ele
- * @param {jsPDF} pdf pdf
- * @param {number} contentWidth 宽度
+ * @param {{header: HTMLElement, pdf: jsPDF, contentWidth: number, pageBackgroundColor: string}} opt
  */
-export async function addHeader (header, pdf, contentWidth) {
+export async function addHeader ({header, pdf, contentWidth, pageBackgroundColor}) {
   const { height: headerHeight, data: headerData, } = await toCanvas(header, contentWidth)
   // 先填充空白防止左右两边留空渲染到表格等多余信息
-  addBlank(0, 0, A4_WIDTH, headerHeight, pdf)
+  addBlank({x: 0, y: 0, width: A4_HEIGHT, height: headerHeight, pdf, pageBackgroundColor})
   pdf.addImage(headerData, 'JPEG', (A4_WIDTH - contentWidth) / 2, 0, contentWidth, headerHeight)
 }
 
 /**
  * 添加页脚
- * @param {number} total 总页数
- * @param {number} pageNum 当前页
- * @param {HTMLElement} footer ele
- * @param {jsPDF} pdf pdf
- * @param {number} contentWidth 宽度
- * @param {string} pageNowClass 当前页码class
- * @param {string} pageTotalClass 总页码class
+ * @typedef {Object} Opt
+ * @property {number} total - 总页数
+ * @property {number} pageNum - 当前页
+ * @property {HTMLElement} footer - ele
+ * @property {jsPDF} pdf - pdf
+ * @property {number} contentWidth - 宽度
+ * @property {string} pageNowClass - 当前页码class
+ * @property {string} pageTotalClass - 总页码class
+ * @property {string} [pageBackgroundColor] - 背景色
+ * @param {Opt} opt 参数
  */
-export async function addFooter (total, pageNum, footer, pdf, contentWidth, pageNowClass, pageTotalClass) {
+export async function addFooter ({total, pageNum, footer, pdf, contentWidth, pageNowClass, pageTotalClass, pageBackgroundColor}) {
   const newFooter = footer.cloneNode(true)
   const pageNumDom = newFooter.querySelector(`${pageNowClass}`),
     pageTotalDom = newFooter.querySelector(`${pageTotalClass}`)
@@ -117,7 +132,7 @@ export async function addFooter (total, pageNum, footer, pdf, contentWidth, page
   document.documentElement.append(newFooter)
   const { height: footerHeight, data: footerData, } = await toCanvas(newFooter, contentWidth)
   // 先填充空白防止左右两边留空渲染到表格等多余信息
-  addBlank(0, A4_HEIGHT - footerHeight, A4_WIDTH, footerHeight, pdf)
+  addBlank({x: 0, y: A4_HEIGHT - footerHeight, width: A4_WIDTH, height: footerHeight, pdf, pageBackgroundColor})
   pdf.addImage(footerData, 'JPEG', (A4_WIDTH - contentWidth) / 2, A4_HEIGHT - footerHeight, contentWidth, footerHeight)
   document.documentElement.removeChild(newFooter)
 }
@@ -125,34 +140,46 @@ export async function addFooter (total, pageNum, footer, pdf, contentWidth, page
 /**
  * 向pdf添加图片，从左上角计算
  * 如果需要将图片裁剪可以设置x或者y为负数，相当于图片左上角超出了pdf区域来实现裁剪
- * @param {number} x 横坐标，正数向右计算
- * @param {number} y 纵坐标，正数向下计算
- * @param {jsPDF} pdf pdf
- * @param {object} data canvas数据
- * @param {number} width 宽度
- * @param {number} height 高度
+ * @typedef {Object} AddImgOpt
+ * @property {number} x 横坐标，正数向右计算
+ * @property {number} y 纵坐标，正数向下计算
+ * @property {jsPDF} pdf pdf
+ * @property {object} data canvas数据
+ * @property {number} width 宽度
+ * @property {number} height 高度
+ * @property {string} [pageBackgroundColor] 页面背景色
+ * @param {AddImgOpt} opt 参数
  */
 // 添加
-export function addImage (x, y, pdf, data, width, height) {
+export function addImage ({x, y, pdf, data, width, height, pageBackgroundColor}) {
   // 高度为0或者没有数据（宽、高为0无法渲染canvas）
   if (!height || !data) {
     // eslint-disable-next-line no-console
     console.warn("元素异常 - 当前元素无法渲染canvas，尺寸信息: ", `width - ${width}, height - ${height}`, `坐标: x - ${x}, y - ${y}`)
     return
   }
+  if (pageBackgroundColor) {
+    const color = hexToRgb(pageBackgroundColor)
+    pdf.setFillColor(color.r, color.g, color.b)
+    pdf.rect(0, 0, A4_WIDTH, A4_HEIGHT, "F")
+  }
   pdf.addImage(data, 'JPEG', x, y, width, height)
 }
 
 /**
  * 增加空白遮挡
- * @param {number} x 横坐标
- * @param {number} y 纵坐标
- * @param {number} width 宽度
- * @param {number} height 高度
- * @param {jsPDF} pdf pdf
+ * @typedef {Object} BlankOpt
+ * @property {number} x 横坐标
+ * @property {number} y 纵坐标
+ * @property {number} width 宽度
+ * @property {number} height 高度
+ * @property {jsPDF} pdf pdf
+ * @property {string} [pageBackgroundColor] 背景色 默认白色
+ * @param {BlankOpt} opt
  */
-export function addBlank (x, y, width, height, pdf) {
-  pdf.setFillColor(255, 255, 255)
+export function addBlank ({x, y, width, height, pdf, pageBackgroundColor}) {
+  const color = pageBackgroundColor ? hexToRgb(pageBackgroundColor) : {r: 255, g: 255, b: 255}
+  pdf.setFillColor(color.r, color.g, color.b)
   pdf.rect(x, y, Math.ceil(width), Math.ceil(height), 'F')
 }
 

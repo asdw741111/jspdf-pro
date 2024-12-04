@@ -38,6 +38,8 @@ document.getElementById("export").onclick = () => {
   createPDF(document.getElementById("pdf"))
     .forcePageTotal(true)
     .setStyleCheck(false)
+    // .setPageBackgroundColor("#efefef")
+    // .setContentBackgroundColor("#c7fefe")
     .margin({left: 40, top: 40, bottom: 20})
     .footer(document.getElementById("footer"), {skipPage: 1})
     .header(document.getElementById("header"), {skipPage: 1})

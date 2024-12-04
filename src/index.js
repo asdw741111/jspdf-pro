@@ -53,6 +53,8 @@ class Html2Pdf {
    *   footer: HTMLElement
    *   canvasHeight: {[any]: number}
    *   styleCheckEnable: boolean
+   *   pageBackgroundColor: string
+   *   contentBackgroundColor: string
    * }}
    */
   #data = {
@@ -67,6 +69,8 @@ class Html2Pdf {
     canvasHeight: {},
     margin: {left: (A4_WIDTH - 550) / 2, top: 0,bottom: 0},
     styleCheckEnable: true,
+    pageBackgroundColor: undefined,
+    contentBackgroundColor: undefined,
   }
   /**
    * @private
@@ -209,7 +213,24 @@ class Html2Pdf {
     }
     return this
   }
-
+  /**
+   * 设置页面背景色，默认白色
+   * @param {string} hexColor 十六进制颜色，例如 #FF0000
+   * @returns this
+   */
+  setPageBackgroundColor (hexColor) {
+    this.#data.pageBackgroundColor = hexColor
+    return this
+  }
+  /**
+   * 设置内容区域背景色（不包括边距和页眉页脚），默认白色
+   * @param {string} hexColor 十六进制颜色，例如 #FF0000
+   * @returns this
+   */
+  setContentBackgroundColor (hexColor) {
+    this.#data.contentBackgroundColor = hexColor
+    return this
+  }
   /**
    * 对指定元素渲染pdf
    * @param {{element: HTMLElement, baseTop?: number, justCalc?: boolean }} opt baseTop - 当前元素距离顶部高度
@@ -240,7 +261,7 @@ class Html2Pdf {
 
     // const baseTop = 0
     // 一页的高度， 转换宽度为一页元素的宽度
-    const { width, height, data, needSplit, } = await toCanvas(element, contentWidth)
+    const { width, height, data, needSplit, } = await toCanvas(element, contentWidth, {backgroundColor: this.#data.contentBackgroundColor})
     if (isNaN(height)) {
       return baseTop
     }
@@ -422,16 +443,23 @@ class Html2Pdf {
       // 只有第一页且有baseTop才需要偏移
       const imgOffSet = needOffset ? (baseTop + headerHeight + baseY) : 0
       // 根据分页位置新增图片
-      addImage(baseX, needOffset ? imgOffSet : baseY + headerHeight - pages[i], pdf, data, width, height)
+      addImage({
+        x: baseX, y: needOffset ? imgOffSet : baseY + headerHeight - pages[i],
+        pdf, data, width, height, pageBackgroundColor: this.#data.pageBackgroundColor
+      })
       // 将 内容 与 页眉之间留空留白的部分进行遮白处理
       if (baseY) {
-        addBlank(0, pdf.getNumberOfPages() > this.#data.headerSkip ? headerHeight : 0, A4_WIDTH, baseY, pdf)
+        addBlank({
+          x: 0, y: pdf.getNumberOfPages() > this.#data.headerSkip ? headerHeight : 0,
+          width: A4_WIDTH, height: baseY, pdf, pageBackgroundColor: this.#data.pageBackgroundColor,
+        })
       }
       // 将 内容 与 页脚之间留空留白的部分进行遮白处理
       if (this.#data.margin.bottom) {
-        addBlank(0, A4_HEIGHT - this.#data.margin.bottom - (
-          pdf.getNumberOfPages() > this.#data.skipPage ? footerHeight : 0)
-        , A4_WIDTH, this.#data.margin.bottom, pdf)
+        addBlank({
+          x: 0, y: A4_HEIGHT - this.#data.margin.bottom - (pdf.getNumberOfPages() > this.#data.skipPage ? footerHeight : 0),
+          width: A4_WIDTH, height: this.#data.margin.bottom, pdf, pageBackgroundColor: this.#data.pageBackgroundColor
+        })
       }
       // 对于除最后一页外，对 内容 的多余部分进行遮白处理
       if (i < pages.length - 1) {
@@ -440,18 +468,30 @@ class Html2Pdf {
         // 对多余的内容部分进行遮白
         const blankTopBase = baseY + imageHeight + headerHeight + 1
         if (needOffset) {
-          addBlank(0, baseTop + blankTopBase, A4_WIDTH, A4_HEIGHT - (imageHeight) - imgOffSet, pdf)
+          addBlank({
+            x: 0, y: baseTop + blankTopBase, width: A4_WIDTH, height: A4_HEIGHT - (imageHeight) - imgOffSet, pdf,
+            pageBackgroundColor: this.#data.pageBackgroundColor,
+          })
         } else {
-          addBlank(0, blankTopBase, A4_WIDTH, A4_HEIGHT - (imageHeight), pdf)
+          addBlank({
+            x: 0, y: blankTopBase, width: A4_WIDTH, height: A4_HEIGHT - imageHeight, pdf, pageBackgroundColor: this.#data.pageBackgroundColor,
+          })
         }
       }
       // 添加页眉
       if (header && pdf.getNumberOfPages() > this.#data.headerSkip) {
-        await addHeader(header, pdf, contentWidth)
+        await addHeader({header, pdf, contentWidth, pageBackgroundColor: this.#data.pageBackgroundColor})
       }
       // 添加页脚
       if (footer && pdf.getNumberOfPages() > this.#data.skipPage) {
-        await addFooter(this.#data.totalPage - this.#data.skipPage, pdf.getNumberOfPages() - this.#data.skipPage, footer, pdf, contentWidth, this.#data.pageNumSelector, this.#data.pageTotalSelector)
+        await addFooter({
+          total: this.#data.totalPage - this.#data.skipPage,
+          pageNum: pdf.getNumberOfPages() - this.#data.skipPage,
+          footer, pdf, contentWidth,
+          pageNowClass: this.#data.pageNumSelector,
+          pageTotalClass: this.#data.pageTotalSelector,
+          pageBackgroundColor: this.#data.pageBackgroundColor,
+        })
       }
       if (this.#progressCallback) {
         this.triggerPageRender(element, (i + 1) / pages.length)
