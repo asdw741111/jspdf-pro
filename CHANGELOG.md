@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.8](https://github.com/asdw741111/jspdf-pro/compare/v0.1.7...v0.1.8) (2024-12-04)
+
+
+### Bug Fixes
+
+* 页眉页脚右侧有时候会有多余边框、背景的问题修复 ([d55217d](https://github.com/asdw741111/jspdf-pro/commit/d55217d8a70442aa4104007ca6216e3079221611))
+
 ### [0.1.7](https://github.com/asdw741111/jspdf-pro/compare/v0.1.6...v0.1.7) (2024-09-18)
 
 ### [0.1.6](https://github.com/asdw741111/jspdf-pro/compare/v0.1.5...v0.1.6) (2024-09-11)
