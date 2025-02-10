@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.9](https://github.com/asdw741111/jspdf-pro/compare/v0.1.8...v0.1.9) (2025-02-10)
+
+
+### Features
+
+* 加入实例cancel方法用于取消导出 ([4ea5282](https://github.com/asdw741111/jspdf-pro/commit/4ea52829e1506740e6707d37e66019d58cdee79a))
+* 支持横向纵向 ([050a182](https://github.com/asdw741111/jspdf-pro/commit/050a1822127d333b14dfb19cca5ba076dfd3a686))
+
 ### [0.1.8](https://github.com/asdw741111/jspdf-pro/compare/v0.1.7...v0.1.8) (2024-12-04)
 
 
