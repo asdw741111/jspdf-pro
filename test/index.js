@@ -29,7 +29,7 @@ const getProgress = () => {
       container.style.display = 'none'
     },
     percent (percent = 0) {
-      const p = Math.min(1, Math.max(percent, 0))
+      const p = Math.min(1, Math.max(percent, 0)).toFixed(2)
       text.innerText = `${p * 100}%`
       bar.style.width = `${p * 100}%`
       if (p >= 1) {
@@ -50,7 +50,8 @@ document.getElementById("export").onclick = () => {
     .setStyleCheck(false)
     // .setPageBackgroundColor("#efefef")
     // .setContentBackgroundColor("#c7fefe")
-    .margin({left: 40, top: 40, bottom: 20})
+    .changeOrientation('l')
+    .margin({left: 20, top: 20, bottom: 20})
     .footer(document.getElementById("footer"), {skipPage: 1})
     .header(document.getElementById("header"), {skipPage: 1})
     .setClassControlFilter("isLeafWithoutDeepFilter", (v) => ["el-table__row", "ant-table-row"].includes(v))

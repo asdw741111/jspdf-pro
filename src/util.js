@@ -2,8 +2,8 @@
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 
-export const A4_WIDTH = 595.266
-export const A4_HEIGHT = 841.8762
+export const A4_WIDTH = 595.28
+export const A4_HEIGHT = 841.89
 
 export const MAX_CANVAS_HEIGHT = 42000
 /** 该元素直接另起一页（如果不是第一页） */
@@ -102,8 +102,9 @@ export async function toCanvas (element, width, opt) {
 export async function addHeader ({header, pdf, contentWidth, pageBackgroundColor}) {
   const { height: headerHeight, data: headerData, } = await toCanvas(header, contentWidth)
   // 先填充空白防止左右两边留空渲染到表格等多余信息
-  addBlank({x: 0, y: 0, width: A4_HEIGHT, height: headerHeight, pdf, pageBackgroundColor})
-  pdf.addImage(headerData, 'JPEG', (A4_WIDTH - contentWidth) / 2, 0, contentWidth, headerHeight)
+  const PAGE_WIDTH = pdf.getPageWidth()
+  addBlank({x: 0, y: 0, width: PAGE_WIDTH, height: headerHeight, pdf, pageBackgroundColor})
+  pdf.addImage(headerData, 'JPEG', (PAGE_WIDTH - contentWidth) / 2, 0, contentWidth, headerHeight)
 }
 
 /**
@@ -120,6 +121,7 @@ export async function addHeader ({header, pdf, contentWidth, pageBackgroundColor
  * @param {Opt} opt 参数
  */
 export async function addFooter ({total, pageNum, footer, pdf, contentWidth, pageNowClass, pageTotalClass, pageBackgroundColor}) {
+  const PAGE_HEIGHT = pdf.getPageHeight()
   const newFooter = footer.cloneNode(true)
   const pageNumDom = newFooter.querySelector(`${pageNowClass}`)
   const pageTotalDom = newFooter.querySelector(`${pageTotalClass}`)
@@ -129,11 +131,12 @@ export async function addFooter ({total, pageNum, footer, pdf, contentWidth, pag
   if (pageTotalDom) {
     pageTotalDom.innerText = total
   }
+  const PAGE_WIDTH = pdf.getPageWidth()
   document.documentElement.append(newFooter)
   const { height: footerHeight, data: footerData, } = await toCanvas(newFooter, contentWidth)
   // 先填充空白防止左右两边留空渲染到表格等多余信息
-  addBlank({x: 0, y: A4_HEIGHT - footerHeight, width: A4_WIDTH, height: footerHeight, pdf, pageBackgroundColor})
-  pdf.addImage(footerData, 'JPEG', (A4_WIDTH - contentWidth) / 2, A4_HEIGHT - footerHeight, contentWidth, footerHeight)
+  addBlank({x: 0, y: PAGE_HEIGHT - footerHeight, width: PAGE_WIDTH, height: footerHeight, pdf, pageBackgroundColor})
+  pdf.addImage(footerData, 'JPEG', (PAGE_WIDTH - contentWidth) / 2, PAGE_HEIGHT - footerHeight, contentWidth, footerHeight)
   document.documentElement.removeChild(newFooter)
 }
 
@@ -158,10 +161,12 @@ export function addImage ({x, y, pdf, data, width, height, pageBackgroundColor})
     console.warn("元素异常 - 当前元素无法渲染canvas，尺寸信息: ", `width - ${width}, height - ${height}`, `坐标: x - ${x}, y - ${y}`)
     return
   }
+  const PAGE_WIDTH = pdf.getPageWidth()
+  const PAGE_HEIGHT = pdf.getPageHeight()
   if (pageBackgroundColor) {
     const color = hexToRgb(pageBackgroundColor)
     pdf.setFillColor(color.r, color.g, color.b)
-    pdf.rect(0, 0, A4_WIDTH, A4_HEIGHT, "F")
+    pdf.rect(0, 0, PAGE_WIDTH, PAGE_HEIGHT, "F")
   }
   pdf.addImage(data, 'JPEG', x, y, width, height)
 }

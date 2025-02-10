@@ -4,7 +4,7 @@ import {
   addBlank, addFooter, addHeader, addImage, getElementTop, updateNomalElPos, updateCrossPos, getMargin, isElementOverflowCanvas,
   checkElementStyle,
 } from "./util"
-export { getHtmlToPdfPixelRate, calcElementSizeInPDF, calcHtmlSizeByPdfSize } from "./util"
+export { calcElementSizeInPDF, calcHtmlSizeByPdfSize } from "./util"
 
 /**
  * 是否包含指定class
@@ -51,12 +51,13 @@ export class Html2Pdf {
    *   header: HTMLElement
    *   headerSkip: number
    *   footer: HTMLElement
-   *   canvasHeight: {[any]: number}
+   *   canvasHeight: Map<any, number>
    *   styleCheckEnable: boolean
    *   pageBackgroundColor: string
    *   contentBackgroundColor: string
    *   rendered: boolean
    *   stoped: boolean
+   *   orientation: 'l' | 'p'
    * }}
    */
   #data = {
@@ -68,13 +69,14 @@ export class Html2Pdf {
     totalPage: 0,
     startTime: 0,
     contentWidth: 550,
-    canvasHeight: {},
+    canvasHeight: new Map(),
     margin: {left: (A4_WIDTH - 550) / 2, top: 0,bottom: 0},
     styleCheckEnable: true,
     pageBackgroundColor: undefined,
     contentBackgroundColor: undefined,
     rendered: false,
     stoped: false,
+    orientation: 'p',
   }
   /**
    * @private
@@ -103,16 +105,31 @@ export class Html2Pdf {
     return this
   }
   /**
+   * 获取页面宽度
+   * @returns {number} 宽度
+   */
+  getPageWidth () {
+    return this.#data.pdf?.getPageWidth() ?? (this.#data.orientation === 'l' ? A4_HEIGHT : A4_WIDTH)
+  }
+  /**
+   * 获取页面高度
+   * @returns {number} 页面高度
+   */
+  getPageHeight () {
+    return this.#data.pdf?.getPageHeight() ?? (this.#data.orientation === 'l' ? A4_WIDTH : A4_HEIGHT)
+  }
+  /**
    * 设置在pdf中的宽度，应当小于595.266(即A4尺寸pdf宽度像素)，如果小于最大宽度会居中显示
    * @param {number} width 宽度, 默认550
    * @returns this
    */
   contentWidth (width) {
-    if (width < 1 || width > A4_WIDTH) {
-      throw new Error(`宽度应当小于${A4_WIDTH}`)
+    const PAGE_WIDTH = this.getPageWidth()
+    if (width < 1 || width > PAGE_WIDTH) {
+      throw new Error(`宽度应当小于${PAGE_WIDTH}`)
     }
     this.#data.contentWidth = width
-    this.#data.margin.left = (A4_WIDTH - width) / 2
+    this.#data.margin.left = (PAGE_WIDTH - width) / 2
     return this
   }
   /**
@@ -124,13 +141,14 @@ export class Html2Pdf {
    * @param {number} [param.bottom] 下边距
    */
   margin ({left, right, top, bottom}) {
+    const PAGE_WIDTH = this.getPageWidth()
     if (typeof(left) === "number" && typeof(right) === "number") {
       this.#data.margin.left = left
-      this.#data.contentWidth = A4_WIDTH - left - right
+      this.#data.contentWidth = PAGE_WIDTH - left - right
     } else if (typeof(left) === "number") {
       this.#data.margin.left = left
     } else if (typeof(right) === "number") {
-      this.#data.margin.left = A4_WIDTH - right - this.#data.contentWidth
+      this.#data.margin.left = PAGE_WIDTH - right - this.#data.contentWidth
     }
     if (typeof(top) === "number") {
       this.#data.margin.top = top
@@ -190,10 +208,12 @@ export class Html2Pdf {
    */
   async getElementCanvasHeight (element) {
     if (!element) return 0
-    if (this.#data.canvasHeight[element]) return this.#data.canvasHeight[element]
+    if (this.#data.canvasHeight.has(element)) {
+      return this.#data.canvasHeight.get(element)
+    }
     const contentWidth = this.#data.contentWidth
     const height = (await toCanvas(element, contentWidth)).height
-    this.#data.canvasHeight[element] = height
+    this.#data.canvasHeight.set(element, height)
     return height
   }
   cancel () {
@@ -247,6 +267,8 @@ export class Html2Pdf {
    */
   async printElement (opt) {
     this.checkStatus()
+    const PAGE_WIDTH = this.getPageWidth()
+    const PAGE_HEIGHT = this.getPageHeight()
     const {element, justCalc } = opt
     let {baseTop = 0 } = opt
     const contentWidth = this.#data.contentWidth
@@ -307,7 +329,7 @@ export class Html2Pdf {
     const baseY = this.#data.margin.top
 
     // 出去页头、页眉、还有内容与两者之间的间距后 每页内容的实际高度
-    let originalPageHeight = (A4_HEIGHT - footerHeight - headerHeight - baseY - this.#data.margin.bottom)
+    let originalPageHeight = (PAGE_HEIGHT - footerHeight - headerHeight - baseY - this.#data.margin.bottom)
 
     /**
      * 计算每一页的高度
@@ -317,7 +339,7 @@ export class Html2Pdf {
       const _page = justCalc ? this.#data.totalPage + elementPages.length - 1 : pdf.getNumberOfPages()
       const _headerHeight = this.#data.headerSkip ? _page > this.#data.headerSkip ? headerHeight : 0 : headerHeight
       const _footerHeight = this.#data.skipPage ? _page > this.#data.skipPage ? footerHeight : 0 : footerHeight
-      const _height = A4_HEIGHT - _footerHeight - _headerHeight - baseY - this.#data.margin.bottom
+      const _height = PAGE_HEIGHT - _footerHeight - _headerHeight - baseY - this.#data.margin.bottom
       if (_height !== originalPageHeight) {
         originalPageHeight = _height
       }
@@ -466,14 +488,15 @@ export class Html2Pdf {
         console.log("baseY", needOffset ? imgOffSet : baseY + headerHeight - pages[i], baseY, headerHeight)
         addBlank({
           x: 0, y: pdf.getNumberOfPages() > this.#data.headerSkip ? headerHeight : 0,
-          width: A4_WIDTH, height: baseY, pdf, pageBackgroundColor: this.#data.pageBackgroundColor,
+          width: PAGE_WIDTH, height: baseY, pdf, pageBackgroundColor: this.#data.pageBackgroundColor,
         })
       }
       // 将 内容 与 页脚之间留空留白的部分进行遮白处理
       if (this.#data.margin.bottom) {
         addBlank({
-          x: 0, y: A4_HEIGHT - this.#data.margin.bottom - (pdf.getNumberOfPages() > this.#data.skipPage ? footerHeight : 0),
-          width: A4_WIDTH, height: this.#data.margin.bottom, pdf, pageBackgroundColor: this.#data.pageBackgroundColor
+          x: 0, y: PAGE_HEIGHT - this.#data.margin.bottom - (pdf.getNumberOfPages() > this.#data.skipPage ? footerHeight : 0),
+          width: PAGE_WIDTH, height: this.#data.margin.bottom + (pdf.getNumberOfPages() > this.#data.skipPage ? footerHeight : 0),
+          pdf, pageBackgroundColor: this.#data.pageBackgroundColor
         })
       }
       // 对于除最后一页外，对 内容 的多余部分进行遮白处理
@@ -484,12 +507,12 @@ export class Html2Pdf {
         const blankTopBase = baseY + imageHeight + headerHeight + 1
         if (needOffset) {
           addBlank({
-            x: 0, y: baseTop + blankTopBase, width: A4_WIDTH, height: A4_HEIGHT - (imageHeight) - imgOffSet, pdf,
+            x: 0, y: baseTop + blankTopBase, width: PAGE_WIDTH, height: PAGE_HEIGHT - (imageHeight) - imgOffSet, pdf,
             pageBackgroundColor: this.#data.pageBackgroundColor,
           })
         } else {
           addBlank({
-            x: 0, y: blankTopBase, width: A4_WIDTH, height: A4_HEIGHT - imageHeight, pdf, pageBackgroundColor: this.#data.pageBackgroundColor,
+            x: 0, y: blankTopBase, width: PAGE_WIDTH, height: PAGE_HEIGHT - imageHeight, pdf, pageBackgroundColor: this.#data.pageBackgroundColor,
           })
         }
       }
@@ -592,6 +615,19 @@ export class Html2Pdf {
     }
   }
   /**
+   * 调整方向
+   * @param {'l'|'p'} orientation 方向 'l' 横向 'p' 纵向
+   * @returns {Html2Pdf} pdf实例
+   */
+  changeOrientation (orientation) {
+    this.#data.orientation = orientation
+    if (orientation === 'l' && this.#data.contentWidth === 550) {
+      this.#data.contentWidth = 800
+      this.#data.margin.left = (A4_HEIGHT - 800) / 2
+    }
+    return this
+  }
+  /**
    * 获取pdf实例
    * @returns pdf实例
    */
@@ -612,9 +648,10 @@ export class Html2Pdf {
     // jsPDFs实例
     const pdf = new jsPDF({
       unit: 'pt',
-      format: 'a4',
-      orientation: 'p',
+      format: [A4_HEIGHT, A4_WIDTH],
+      orientation: this.#data.orientation === 'l' ? 'l' : 'p',
     })
+
     this.#data.startTime = Date.now()
     this.#data.pdf = pdf
     this.#data.nowHeight = 0
