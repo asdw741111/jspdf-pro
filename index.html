@@ -146,7 +146,6 @@
       border: 1px solid #c7c7c7;
       border-radius: 10px;
       background-color: #fff;
-      overflow: hidden;
       color: #FFF;
       display: none;
     }
@@ -154,6 +153,7 @@
       background-color: blueviolet;
       width: 50%;
       height: 100%;
+      border-radius: 10px;
       transition: width 1s linear;
     }
     .progress .percent {
@@ -162,6 +162,11 @@
       width: 100%;
       text-align: center;
       mix-blend-mode: difference;
+    }
+    .progress button {
+      position: absolute;
+      right: -50px;
+      top: 0;
     }
   </style>
 </head>
@@ -308,7 +313,7 @@
       </div>
     </div>
   </div>
-  <div class="progress" id="progress"><div class="bar"></div><div class="percent">50%</div></div>
+  <div class="progress" id="progress"><div class="bar"></div><div class="percent">50%</div><button>取消</button></div>
 </body>
 
 </html>

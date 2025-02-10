@@ -25,7 +25,7 @@ const checkClass = (el, check) => el.classList ? [...el.classList.values()].find
  * @property {HTMLElement} #element
  * @property {HTMLElement} data.header
  */
-class Html2Pdf {
+export class Html2Pdf {
   /** @private 当前根元素 required */
   #element
   /** @private 控制class */
@@ -55,6 +55,8 @@ class Html2Pdf {
    *   styleCheckEnable: boolean
    *   pageBackgroundColor: string
    *   contentBackgroundColor: string
+   *   rendered: boolean
+   *   stoped: boolean
    * }}
    */
   #data = {
@@ -71,6 +73,8 @@ class Html2Pdf {
     styleCheckEnable: true,
     pageBackgroundColor: undefined,
     contentBackgroundColor: undefined,
+    rendered: false,
+    stoped: false,
   }
   /**
    * @private
@@ -105,7 +109,7 @@ class Html2Pdf {
    */
   contentWidth (width) {
     if (width < 1 || width > A4_WIDTH) {
-      throw new Error("宽度应当小于" + A4_WIDTH)
+      throw new Error(`宽度应当小于${A4_WIDTH}`)
     }
     this.#data.contentWidth = width
     this.#data.margin.left = (A4_WIDTH - width) / 2
@@ -192,6 +196,9 @@ class Html2Pdf {
     this.#data.canvasHeight[element] = height
     return height
   }
+  cancel () {
+    this.#data.stoped = true
+  }
   /**
    * 设置进度回调函数
    * 如果元素高度超出canvas最大高度，并且没有设置forcePageTotal(true)则pageNum=当前渲染高度, totalPage=总高度，由于存在不跨页、换页等情况导致实际渲染高度增加，会超出总高度
@@ -202,7 +209,9 @@ class Html2Pdf {
     return this
   }
   /**
-   * 设置过滤器
+   * 设置过滤器, 根据元素class判断是否做跨页处理。过滤器说明：
+   * - isLeafWithoutDeepFilter: 叶子节点，整体跨页处理，不再遍历内部元素。可能出现的问题是如果该元素高度超出一页还是会出现截断。优点是不用遍历子元素所以性能好。适用于表格行、图片、canvas等。
+   * - isLeafWithDeepFilter: 叶子节点，整体跨页处理，但是会继续遍历内部元素，确保不会出现高度高于一页的元素被截断问题。缺点是速度会慢，建议用于较高的元素，例如一个大章节。
    * @param {"isLeafWithoutDeepFilter" | "isLeafWithDeepFilter"} type 过滤器类型
    * @param {(clz: string) => boolean} filter 过滤器
    * @returns this
@@ -237,12 +246,13 @@ class Html2Pdf {
    * @returns
    */
   async printElement (opt) {
+    this.checkStatus()
     const {element, justCalc } = opt
     let {baseTop = 0 } = opt
-    const contentWidth = this.#data.contentWidth,
-      header = this.#data.header,
-      footer = this.#data.footer,
-      pdf = this.#data.pdf
+    const contentWidth = this.#data.contentWidth
+    const header = this.#data.header
+    const footer = this.#data.footer
+    const pdf = this.#data.pdf
 
     // 当前元素包含分页且baseTop != 0则直接分页并设置baseTop为0
     if (hasClass(element, this.#controlClass.BREAK_PAGE_CLASS) && baseTop) {
@@ -262,7 +272,7 @@ class Html2Pdf {
     // const baseTop = 0
     // 一页的高度， 转换宽度为一页元素的宽度
     const { width, height, data, needSplit, } = await toCanvas(element, contentWidth, {backgroundColor: this.#data.contentBackgroundColor})
-    if (isNaN(height)) {
+    if (Number.isNaN(height)) {
       return baseTop
     }
     if (element === this.#element) {
@@ -288,8 +298,8 @@ class Html2Pdf {
     }
 
     // 页脚元素 经过转换后在PDF页面的高度 TODO 这里需要缓存footer和header高度，避免重复计算，对性能影响很大
-    const footerHeight = (await this.getElementCanvasHeight(footer) * rate),
-      headerHeight = (await this.getElementCanvasHeight(header) * rate)
+    const footerHeight = (await this.getElementCanvasHeight(footer) * rate)
+    const headerHeight = (await this.getElementCanvasHeight(header) * rate)
 
     // 距离PDF左边的距离
     const baseX = this.#data.margin.left
@@ -347,7 +357,8 @@ class Html2Pdf {
     this.styleCheck(element, true)
 
     // 每一页的分页坐标， PDF高度， 初始值为根元素距离顶部的距离
-    const elementTop = getElementTop(element), pages = [baseTop + headerHeight + baseY]
+    const elementTop = getElementTop(element)
+    const pages = [baseTop + headerHeight + baseY]
 
     /**
      * 获取元素距离网页顶部的距离
@@ -369,6 +380,7 @@ class Html2Pdf {
         // eslint-disable-next-line no-continue
         if (one.nodeType !== 1) continue
         this.styleCheck(one)
+        // 计算一页的高度, 是否包含页眉页脚会影响内容区域高度
         triggerPageHeight(pages)
         // 需要判断跨页且内部存在跨页的元素
         const isBreakPage = hasClass(one, this.#controlClass.BREAK_PAGE_CLASS)
@@ -439,6 +451,7 @@ class Html2Pdf {
     }
     // 根据分页位置 开始分页
     for (let i = 0; i < pages.length; ++i) {
+      this.checkStatus()
       const needOffset = (baseTop || baseY) && i === 0
       // 只有第一页且有baseTop才需要偏移
       const imgOffSet = needOffset ? (baseTop + headerHeight + baseY) : 0
@@ -449,6 +462,8 @@ class Html2Pdf {
       })
       // 将 内容 与 页眉之间留空留白的部分进行遮白处理
       if (baseY) {
+        // eslint-disable-next-line no-console
+        console.log("baseY", needOffset ? imgOffSet : baseY + headerHeight - pages[i], baseY, headerHeight)
         addBlank({
           x: 0, y: pdf.getNumberOfPages() > this.#data.headerSkip ? headerHeight : 0,
           width: A4_WIDTH, height: baseY, pdf, pageBackgroundColor: this.#data.pageBackgroundColor,
@@ -529,6 +544,14 @@ class Html2Pdf {
     this.#data.forceTotalPage = force
     return this
   }
+  /**
+   * 检查状态
+   */
+  checkStatus () {
+    if (this.#data.stoped) {
+      throw new Error("已停止导出")
+    }
+  }
 
   assertExport () {
     if (!this.#element) throw new Error("未设置element")
@@ -541,7 +564,7 @@ class Html2Pdf {
    */
   async toPdf (fileName) {
     await this.render()
-    return this.#data.pdf.save(!fileName ? "导出.pdf" : (fileName.endsWith(".pdf") ? fileName : fileName + ".pdf"))
+    return this.#data.pdf.save(!fileName ? "导出.pdf" : (fileName.endsWith(".pdf") ? fileName : `${fileName}.pdf`))
   }
   /**
    * 是否开启样式检查，默认开启
@@ -585,6 +608,7 @@ class Html2Pdf {
       throw new Error("已经执行过渲染过, 如果需要重新渲染设置参数force=true")
     }
     this.assertExport()
+    this.#data.stoped = false
     // jsPDFs实例
     const pdf = new jsPDF({
       unit: 'pt',
@@ -599,12 +623,12 @@ class Html2Pdf {
       this.#data.totalPage = 1
       await this.printElement({element: this.#element, justCalc: true})
       // eslint-disable-next-line no-console
-      console.log("计算总页数完成", this.#data.totalPage, Math.floor((Date.now() - this.#data.startTime) / 1000) + "s")
+      console.log("计算总页数完成", this.#data.totalPage, `${Math.floor((Date.now() - this.#data.startTime) / 1000)}s`)
     }
     await this.printElement({element: this.#element})
     const durationTime = Date.now() - this.#data.startTime
     // eslint-disable-next-line no-console
-    console.log("导出用时", Math.floor(durationTime / 1000) + "s", durationTime)
+    console.log("导出用时", `${Math.floor(durationTime / 1000)}s`, durationTime)
     this.#data.rendered = true
     return this
   }

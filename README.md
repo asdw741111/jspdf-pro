@@ -49,6 +49,27 @@ document.getElementById("export").onclick = () => {
   createPDF(document.getElementById("pdf"))
     .render().then((obj) => obj.getPDF().save("save.pdf"))
 }
+
+```
+
+### 取消导出
+```js
+import { createPDF } from "jspdf-pro"
+const pdf = createPDF(document.getElementById("pdf"))
+pdf.forcePageTotal(true)
+  .margin({left: 40, top: 40, bottom: 20})
+  .footer(document.getElementById("footer"), {skipPage: 1})
+  .header(document.getElementById("header"), {skipPage: 1})
+  .setClassControlFilter("isLeafWithoutDeepFilter", (v) => ["el-table__row", "ant-table-row"].includes(v)) // 针对element-ui和antd库的表格行样式做跨页处理
+  .onProgress((page, total) => {
+    // 如果高度超出canvas最大高度page=当前渲染元素到顶部的距离, total=element总高度。如果设置了forcePageTotal(true)则是页数
+    console.log("进度", `${(page / total * 100).toFixed(1)}%`)
+  }).toPdf("这是文件名.pdf")
+  
+setTimeout(() => {
+  pdf.cancel()
+}, 1000)
+
 ```
 
 ### 工具函数
@@ -83,6 +104,12 @@ pdf实例方法说明
 - `setStyleCheck` 设置是否导出的时候对样式问题警告，默认警告
 - `setPageBackgroundColor` 设置页面背景色，默认白色
 - `setContentBackgroundColor` 设置内容区域背景色，不包括上下左右边距、页眉页脚，默认白色
+- `cancel` 取消导出，会抛出Error，可以在render函数的catch捕获
+
+### setClassControlFilter说明
+用于根据元素class控制是否跨页等，用于想要动态控制或者无法设置为`pdf-break-page`等内置class的情况，支持的过滤器包括：
+- **isLeafWithoutDeepFilter**: 叶子节点，整体跨页处理，不再遍历内部元素。可能出现的问题是如果该元素高度超出一页还是会出现截断。优点是不用遍历子元素所以性能好。适用于表格行、图片、canvas等。
+- **isLeafWithDeepFilter**: 叶子节点，整体跨页处理，但是会继续遍历内部元素，确保不会出现高度高于一页的元素被截断问题。缺点是速度会慢，建议用于较高的元素，例如一个大章节。
 
 ### PDF控制class
 支持通过html的`class`来控制特殊效果，例如从此处换页、需要保持完整，完整列表如下

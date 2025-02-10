@@ -25,9 +25,9 @@ export const FOOTER_PAGE_TOTAL_CLASS = 'pdf-footer-page-total'
  * @returns rgb
  */
 const hexToRgb = (hex) => {
-  const r = parseInt(hex.substring(1, 3), 16)
-  const g = parseInt(hex.substring(3, 5), 16)
-  const b = parseInt(hex.substring(5, 7), 16)
+  const r = Number.parseInt(hex.substring(1, 3), 16)
+  const g = Number.parseInt(hex.substring(3, 5), 16)
+  const b = Number.parseInt(hex.substring(5, 7), 16)
   return { r, g, b }
 }
 /**
@@ -78,7 +78,7 @@ export async function toCanvas (element, width, opt) {
     windowHeight: element.scrollHeight,
     backgroundColor: opt?.backgroundColor, // 内容区域背景色
   })
-  // 获取canavs转化后的宽度
+  // 获取canvas转化后的宽度
   const canvasWidth = canvas.width
   // 获取canvas转化后的高度
   const canvasHeight = canvas.height
@@ -121,8 +121,8 @@ export async function addHeader ({header, pdf, contentWidth, pageBackgroundColor
  */
 export async function addFooter ({total, pageNum, footer, pdf, contentWidth, pageNowClass, pageTotalClass, pageBackgroundColor}) {
   const newFooter = footer.cloneNode(true)
-  const pageNumDom = newFooter.querySelector(`${pageNowClass}`),
-    pageTotalDom = newFooter.querySelector(`${pageTotalClass}`)
+  const pageNumDom = newFooter.querySelector(`${pageNowClass}`)
+  const pageTotalDom = newFooter.querySelector(`${pageTotalClass}`)
   if (pageNumDom) {
     pageNumDom.innerText = pageNum
   }
@@ -261,7 +261,7 @@ export const updateCrossPos = (top, {baseTop, pages, originalPageHeight, height}
     // 如果高度已经超过当前页，则证明可以分页了
     pages.push((pages.length > 0 ? pages[pages.length - 1] : 0) + originalPageHeight)
   } else if ((top + height - (pages.length > 0 ? pages[pages.length - 1] : 0) > originalPageHeight)
-    && (top != (pages.length > 0 ? pages[pages.length - 1] : 0))) {
+    && (top !== (pages.length > 0 ? pages[pages.length - 1] : 0))) {
     // 若 距离当前页顶部的高度 加上元素自身的高度 大于 一页内容的高度, 则证明元素跨页，将当前高度作为分页位置
     pages.push(top)
   }
@@ -302,9 +302,8 @@ export const calcElementSizeInPDF = ({element, type = "height", pdfRootElement, 
   const rate = getHtmlToPdfPixelRate({...rest, element: pdfRootElement})
   if (type === "height") {
     return element.offsetHeight * rate
-  } else {
-    return element.offsetWidth * rate
   }
+  return element.offsetWidth * rate
 }
 
 /**

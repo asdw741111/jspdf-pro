@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import { createPDF } from "../src/index"
+import { createPDF, } from "../src/index"
 
 /**
  * 进度条
@@ -9,11 +9,21 @@ const getProgress = () => {
   const bar = document.querySelector('#progress .bar')
   const container = document.querySelector('#progress')
   const text = document.querySelector('#progress .percent')
+  const btn = document.querySelector('.progress button')
+
   return {
-    show () {
+    /**
+     * pdf
+     * @param {Html2Pdf} pdf pdf
+     */
+    show (pdf) {
       bar.style.width = '0%'
       text.innerText = '0%'
       container.style.display = 'block'
+      btn.onclick = () => {
+        pdf.cancel()
+        this.hide()
+      }
     },
     hide () {
       container.style.display = 'none'
@@ -34,9 +44,9 @@ const getProgress = () => {
 const p = getProgress()
 
 document.getElementById("export").onclick = () => {
-  p.show()
-  createPDF(document.getElementById("pdf"))
-    .forcePageTotal(true)
+  const pdf = createPDF(document.getElementById("pdf"))
+  p.show(pdf)
+  pdf.forcePageTotal(true)
     .setStyleCheck(false)
     // .setPageBackgroundColor("#efefef")
     // .setContentBackgroundColor("#c7fefe")
@@ -47,5 +57,5 @@ document.getElementById("export").onclick = () => {
     .onProgress((page, total) => {
       console.log("progress", page, total)
       p.percent(page / total)
-    }).render().then((r) => r.getPDF().save("save.pdf"))
+    }).render().then((r) => r.getPDF().save("save.pdf")).catch((e) => console.log("ERRRRR", e))
 }
