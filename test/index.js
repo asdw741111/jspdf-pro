@@ -29,10 +29,10 @@ const getProgress = () => {
       container.style.display = 'none'
     },
     percent (percent = 0) {
-      const p = Math.min(1, Math.max(percent, 0)).toFixed(2)
-      text.innerText = `${p * 100}%`
-      bar.style.width = `${p * 100}%`
-      if (p >= 1) {
+      const p = (Math.min(1, Math.max(percent, 0)) * 100).toFixed(2)
+      text.innerText = `${p}%`
+      bar.style.width = `${p}%`
+      if (p >= 100) {
         setTimeout(() => {
           this.hide()
         }, 2000)
@@ -50,10 +50,10 @@ document.getElementById("export").onclick = () => {
     .setStyleCheck(false)
     // .setPageBackgroundColor("#efefef")
     // .setContentBackgroundColor("#c7fefe")
-    .changeOrientation('l')
+    .changeOrientation('p')
     .margin({left: 20, top: 20, bottom: 20})
-    .footer(document.getElementById("footer"), {skipPage: 1})
-    .header(document.getElementById("header"), {skipPage: 1})
+    // .footer(document.getElementById("footer"), {skipPage: 1})
+    // .header(document.getElementById("header"), {skipPage: 1})
     .setClassControlFilter("isLeafWithoutDeepFilter", (v) => ["el-table__row", "ant-table-row"].includes(v))
     .onProgress((page, total) => {
       console.log("progress", page, total)

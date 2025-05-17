@@ -58,6 +58,8 @@ export class Html2Pdf {
    *   rendered: boolean
    *   stoped: boolean
    *   orientation: 'l' | 'p'
+   *   recursionDepth: number
+   *   maxRecursionDepth: number
    * }}
    */
   #data = {
@@ -77,6 +79,8 @@ export class Html2Pdf {
     rendered: false,
     stoped: false,
     orientation: 'p',
+    recursionDepth: 0,
+    maxRecursionDepth: 100, // Maximum recursion depth to prevent infinite loops
   }
   /**
    * @private
@@ -262,7 +266,7 @@ export class Html2Pdf {
   }
   /**
    * 对指定元素渲染pdf
-   * @param {{element: HTMLElement, baseTop?: number, justCalc?: boolean }} opt baseTop - 当前元素距离顶部高度
+   * @param {{element: HTMLElement, baseTop?: number, justCalc?: boolean, recursionDepth?: number }} opt baseTop - 当前元素距离顶部高度
    * @returns
    */
   async printElement (opt) {
@@ -271,6 +275,16 @@ export class Html2Pdf {
     const PAGE_HEIGHT = this.getPageHeight()
     const {element, justCalc } = opt
     let {baseTop = 0 } = opt
+    const recursionDepth = opt.recursionDepth || 0
+
+    // Track recursion depth to prevent infinite loops
+    this.#data.recursionDepth = recursionDepth
+    if (recursionDepth > this.#data.maxRecursionDepth) {
+      // eslint-disable-next-line no-console
+      console.error("元素切分递归深度超过最大限制", element, `最大深度: ${this.#data.maxRecursionDepth}`)
+      return baseTop
+    }
+
     const contentWidth = this.#data.contentWidth
     const header = this.#data.header
     const footer = this.#data.footer
@@ -285,39 +299,87 @@ export class Html2Pdf {
       }
       baseTop = 0
     }
+
+    // 检查元素是否有效
+    if (!element || !element.offsetWidth) {
+      // eslint-disable-next-line no-console
+      console.warn("无效元素或元素宽度为0", element)
+      return baseTop
+    }
+
     // 元素在网页页面的宽度
     const elementWidth = element.offsetWidth
 
     // PDF内容宽度 和 在HTML中宽度 的比， 用于将 元素在网页的高度 转化为 PDF内容内的高度， 将 元素距离网页顶部的高度  转化为 距离Canvas顶部的高度
     const rate = contentWidth / elementWidth
 
-    // const baseTop = 0
     // 一页的高度， 转换宽度为一页元素的宽度
-    const { width, height, data, needSplit, } = await toCanvas(element, contentWidth, {backgroundColor: this.#data.contentBackgroundColor})
-    if (Number.isNaN(height)) {
+    let canvasResult = { width: 0, height: 0, data: null, needSplit: false }
+
+    try {
+      canvasResult = await toCanvas(element, contentWidth, {backgroundColor: this.#data.contentBackgroundColor})
+      const { width, height, data, needSplit } = canvasResult
+
+      if (Number.isNaN(height)) {
+        // eslint-disable-next-line no-console
+        console.warn("元素高度计算为NaN", element)
+        return baseTop
+      }
+
+      if (element === this.#element) {
+        this.#data.totalHeight = element.clientHeight
+        this.#data.heightOffset = getElementTop(element)
+      }
+
+      if (needSplit) {
+        // 向下对子元素处理
+        // eslint-disable-next-line no-console
+        console.log("元素过高需要切分", height, element)
+
+        const eles = element.childNodes
+        // 检查是否有子元素
+        const hasChildElements = [...eles].some((node) => node.nodeType === 1)
+
+        if (!hasChildElements) {
+          // eslint-disable-next-line no-console
+          console.warn("元素过高但没有子元素可以切分", element)
+          // 尝试强制渲染元素，即使它超出了最大高度
+          if (!justCalc && data) {
+            addImage({
+              x: this.#data.margin.left,
+              y: baseTop + (header ? await this.getElementCanvasHeight(header) * rate : 0) + this.#data.margin.top,
+              pdf, data, width, height,
+              pageBackgroundColor: this.#data.pageBackgroundColor
+            })
+          }
+          return baseTop + height
+        }
+
+        let subTop = baseTop
+        for(const subDom of eles) {
+          if (subDom.nodeType === 1) {
+            subTop = await this.printElement({
+              ...opt,
+              element: subDom,
+              baseTop: subTop,
+              recursionDepth: recursionDepth + 1
+            })
+          }
+        }
+        return subTop
+      }
+
+      // Store canvas result for later use
+      this._currentCanvasResult = canvasResult
+
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error("渲染元素时出错", element, error)
       return baseTop
     }
-    if (element === this.#element) {
-      this.#data.totalHeight = element.clientHeight
-      this.#data.heightOffset = getElementTop(element)
-    }
-    if (needSplit) {
-      // 向下对子元素处理
-      // eslint-disable-next-line no-console
-      console.log("元素过高需要切分", height)
-      const eles = element.childNodes
-      // 检查是否存在当前元素下一级子元素不是标签的情况，会导致计算出问题应当抛出异常
-      // if ([...element.childNodes].find((o) => o.nodeType !== 1)) {
-      //   throw new Error("有超高标签下一级子元素不是标签, 请包裹标签")
-      // }
-      let subTop = baseTop
-      for(const subDom of eles) {
-        if (subDom.nodeType === 1) {
-          subTop = await this.printElement({...opt, element: subDom, baseTop: subTop})
-        }
-      }
-      return subTop
-    }
+
+    // 获取当前canvas结果
+    const { width, height, data } = this._currentCanvasResult || { width: 0, height: 0, data: null }
 
     // 页脚元素 经过转换后在PDF页面的高度 TODO 这里需要缓存footer和header高度，避免重复计算，对性能影响很大
     const footerHeight = (await this.getElementCanvasHeight(footer) * rate)
@@ -361,7 +423,7 @@ export class Html2Pdf {
     }
     triggerPageHeight()
     // 如果当前元素不需要向下遍历则判断高度是否超出，并且baseTop!=0的话需要换页
-    if (baseTop && getIsElementCrossLeaf(element) && height + baseTop > originalPageHeight) {
+    if (baseTop && getIsElementCrossLeaf(element) && height && height + baseTop > originalPageHeight) {
       baseTop = 0
       if (justCalc) {
         this.#data.totalPage++
@@ -456,11 +518,11 @@ export class Html2Pdf {
       traversingNodes(element.childNodes)
     }
     // 可能会存在遍历到底部元素为深度节点，可能存在最后一页位置未截取到的情况
-    if (pages[pages.length - 1] + originalPageHeight < height) {
+    if (height && pages[pages.length - 1] + originalPageHeight < height) {
       pages.push(pages[pages.length - 1] + originalPageHeight)
     }
     // 当前pdf页中剩余空间距离顶部
-    const vt = pages.length > 1 ? height - pages[pages.length - 1] : baseTop + height
+    const vt = height ? (pages.length > 1 ? height - pages[pages.length - 1] : baseTop + height) : baseTop
     const returnValue = vt + lastMarginBottom
     // 仅用于计算总页数模式, 添加总页数并返回剩余高度
     if (justCalc) {
@@ -477,11 +539,18 @@ export class Html2Pdf {
       const needOffset = (baseTop || baseY) && i === 0
       // 只有第一页且有baseTop才需要偏移
       const imgOffSet = needOffset ? (baseTop + headerHeight + baseY) : 0
-      // 根据分页位置新增图片
-      addImage({
-        x: baseX, y: needOffset ? imgOffSet : baseY + headerHeight - pages[i],
-        pdf, data, width, height, pageBackgroundColor: this.#data.pageBackgroundColor
-      })
+
+      // 确保有数据可以渲染
+      if (data && width && height) {
+        // 根据分页位置新增图片
+        addImage({
+          x: baseX, y: needOffset ? imgOffSet : baseY + headerHeight - pages[i],
+          pdf, data, width, height, pageBackgroundColor: this.#data.pageBackgroundColor
+        })
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn("缺少渲染数据", element)
+      }
       // 将 内容 与 页眉之间留空留白的部分进行遮白处理
       if (baseY) {
         // eslint-disable-next-line no-console

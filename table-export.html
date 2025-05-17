@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>表格导出PDF示例</title>
+    <style>
+        body {
+            font-family: "SimSun", "宋体", sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: center;
+            font-size: 14px;
+        }
+        .gray-bg {
+            background-color: #e0e0e0;
+        }
+        .notes {
+            text-align: left;
+            padding-left: 10px;
+        }
+        .signature-row td {
+            height: 40px;
+        }
+        .export-btn {
+            margin: 20px 0;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .export-btn:hover {
+            background-color: #45a049;
+        }
+        .highlighted {
+            background-color: #ffdddd;
+        }
+
+        .progress {
+      position: fixed;
+      top: 20px;
+      width: 200px;
+      height: 20px;
+      left: calc(50% - 100px);
+      border: 1px solid #c7c7c7;
+      border-radius: 10px;
+      background-color: #fff;
+      color: #FFF;
+      display: none;
+    }
+    .progress .bar {
+      background-color: blueviolet;
+      width: 50%;
+      height: 100%;
+      border-radius: 10px;
+      transition: width 1s linear;
+    }
+    .progress .percent {
+      position: absolute;
+      top: 2px;
+      width: 100%;
+      text-align: center;
+      mix-blend-mode: difference;
+    }
+    .progress button {
+      position: absolute;
+      right: -50px;
+      top: 0;
+    }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>表格导出PDF示例</h1>
+
+        <button class="export-btn" id="export">导出PDF</button>
+
+        <div id="header">这里是页眉</div></div>
+        <div id="footer"><span class="pdf-footer-page">2</span> / <span class="pdf-footer-page-total">10</span></div>
+        <div id="pdf" style="width: 900px;margin: 0 auto;">
+            <div style="height: 1220px;">fengmian</div>
+            <div id="tableContent">
+                <table>
+                    <thead><tr><th>序号</th></tr></thead>
+                    <tbody>
+                        <tr class="pdf-not-calc-height"><td>安安1</td></tr>
+                        <tr class="pdf-not-calc-height"><td>安安2</td></tr>
+                        <tr class="pdf-not-calc-height"><td>安安3</td></tr>
+                        <tr class="pdf-not-calc-height"><td>安安4</td></tr>
+                        <tr class="pdf-not-calc-height"><td>安安5</td></tr>
+                        <tr class="pdf-not-calc-height"><td>安安6</td></tr>
+                        <tr class="pdf-not-calc-height"><td>安安7</td></tr>
+                        <tr class="pdf-not-calc-height"><td>安安8</td></tr>
+                        <tr class="pdf-not-calc-height"><td>安安9</td></tr>
+                        <tr class="pdf-not-calc-height"><td>安安10</td></tr>
+                        <tr class="pdf-not-calc-height"><td>安安11</td></tr>
+                        <tr class="pdf-not-calc-height"><td>安安12</td></tr>
+                        <tr class="pdf-not-calc-height"><td>安安13</td></tr>
+                        <tr class="pdf-not-calc-height"><td>安安14</td></tr>
+                        <tr class="pdf-not-calc-height"><td>安安</td></tr>
+                        <tr class="pdf-not-calc-height"><td>安安</td></tr>
+                        <tr class="pdf-not-calc-height"><td>安安</td></tr>
+                        <tr class="pdf-not-calc-height"><td>安安</td></tr>
+                    </tbody>
+                </table>
+                <table>
+                    <tr>
+                        <td>25</td>
+                        <td></td>
+                        <td></td>
+                        <td>200PA</td>
+                        <td></td>
+                        <td>NOCA-H</td>
+                        <td>某产品</td>
+                        <td>POMA</td>
+                        <td>订单号45</td>
+                        <td>A</td>
+                        <td>75000</td>
+                        <td>15</td>
+                        <td>50</td>
+                        <td>35.50</td>
+                        <td>35.50</td>
+                    </tr>
+                    <tr class="gray-bg">
+                        <td colspan="9">步 主人2-2</td>
+                        <td colspan="6">合计</td>
+                    </tr>
+                    <tr>
+                        <td colspan="9"></td>
+                        <td colspan="2">123,276</td>
+                        <td colspan="1">61,638</td>
+                        <td colspan="2">687,568.67</td>
+                        <td colspan="1">305,284.88</td>
+                    </tr>
+                    <tr>
+                        <td colspan="15" class="notes">报价条款</td>
+                    </tr>
+                    <tr>
+                        <td colspan="15" class="notes">1 货价含海运运费、清关及内陆运输费。如客户要求加急空运，空运费由客户承担，空空运输费实际金额按实结算。</td>
+                    </tr>
+                    <tr>
+                        <td colspan="15" class="notes">2 报价有效期：30天。</td>
+                    </tr>
+                    <tr>
+                        <td colspan="15" class="notes">3 付款方式：需方于订单确认后，完成100%TT付款。</td>
+                    </tr>
+                    <tr>
+                        <td colspan="15" class="notes highlighted">4 运输方式：</td>
+                    </tr>
+                    <tr>
+                        <td colspan="15" class="notes">5 交货日期：150天。如制造定节假日或不可抗力，则货期顺延，自客方确认上述订单中的具体产品品等特殊要求，并完成相对应的付款之日起算。</td>
+                    </tr>
+                    <tr>
+                        <td colspan="15" class="notes">6 报价确认：由需方签字盖章确认书面</td>
+                    </tr>
+                    <tr>
+                        <td colspan="5">负责销售：</td>
+                        <td colspan="5">报价审核：</td>
+                        <td colspan="5">需方确认：</td>
+                    </tr>
+                    <tr class="signature-row">
+                        <td colspan="5">确认日期：</td>
+                        <td colspan="5">确认日期：</td>
+                        <td colspan="5">确认日期：</td>
+                    </tr>
+                </table>
+            </div>
+            <div style="background: blue;padding: 50px;">这是结尾</div>
+        </div>
+        <div class="progress" id="progress"><div class="bar"></div><div class="percent">50%</div><button>取消</button></div>
+    </div>
+
+    <!-- 引入jspdf-pro库 -->
+    <script src="./test/index.js" type="module"></script>
+</body>
+</html>

@@ -5,6 +5,8 @@ import jsPDF from 'jspdf'
 export const A4_WIDTH = 595.28
 export const A4_HEIGHT = 841.89
 
+// Canvas最大高度限制 - 设置为较安全的值，避免超出浏览器限制
+// Chrome/Edge/Firefox: ~32,767px, Safari: ~16,384px
 export const MAX_CANVAS_HEIGHT = 42000
 /** 该元素直接另起一页（如果不是第一页） */
 export const BREAK_PAGE_CLASS = 'pdf-break-page'
@@ -70,29 +72,227 @@ export const isElementOverflowCanvas = (element) => getElementCanvasHeight(eleme
  * @returns
  */
 export async function toCanvas (element, width, opt) {
-  // canvas元素
-  const canvas = await html2canvas(element, {
-    allowTaint: true, // 允许渲染跨域图片
-    scale: window.devicePixelRatio * 2, // 增加清晰度window.devicePixelRatio * 2
-    useCORS: true,// 允许跨域
-    windowHeight: element.scrollHeight,
-    backgroundColor: opt?.backgroundColor, // 内容区域背景色
-  })
-  // 获取canvas转化后的宽度
-  const canvasWidth = canvas.width
-  // 获取canvas转化后的高度
-  const canvasHeight = canvas.height
-  if (canvasHeight > MAX_CANVAS_HEIGHT) {
-    return {needSplit: true, height: canvasHeight}
+  try {
+    // 检查元素是否有效
+    if (!element || !element.offsetWidth) {
+      // eslint-disable-next-line no-console
+      console.warn("无效元素或元素宽度为0", element)
+      return { width: 0, height: 0, data: null, needSplit: false }
+    }
+
+    // 特殊处理iframe元素
+    if (element.tagName === 'IFRAME') {
+      try {
+        // eslint-disable-next-line no-console
+        console.warn("检测到iframe元素，尝试特殊处理", element)
+
+        // 获取iframe的尺寸
+        const elementWidth = element.offsetWidth || element.clientWidth || 600
+        const elementHeight = element.offsetHeight || element.clientHeight || 400
+
+        // 检查iframe是否同源
+        let isSameOrigin = false
+        try {
+          // 尝试访问iframe的contentDocument，如果成功则为同源
+          isSameOrigin = !!element.contentDocument
+          // eslint-disable-next-line no-console
+          console.log("iframe同源检查:", isSameOrigin, element.src)
+        } catch (e) {
+          // 如果出错，则不是同源
+          isSameOrigin = false
+        }
+
+        // 如果是同源iframe，尝试直接渲染其内容
+        if (isSameOrigin && element.contentDocument && element.contentDocument.body) {
+          try {
+            // eslint-disable-next-line no-console
+            console.log("尝试渲染同源iframe内容")
+
+            // 获取iframe的文档
+            const iframeDoc = element.contentDocument
+
+            // 尝试使用html2canvas渲染iframe内容
+            const iframeCanvas = await html2canvas(iframeDoc.body, {
+              allowTaint: true,
+              scale: window.devicePixelRatio * 2,
+              useCORS: true,
+              windowHeight: iframeDoc.body.scrollHeight,
+              backgroundColor: opt?.backgroundColor,
+              logging: false,
+            })
+
+            // 计算PDF中的高度
+            const height = (width / elementWidth) * elementHeight
+
+            // 转换为图片数据
+            const canvasData = iframeCanvas.toDataURL('image/jpeg', 1.0)
+
+            // 返回处理结果
+            return { width, height, data: canvasData, needSplit: false }
+          } catch (sameOriginError) {
+            // 如果渲染同源iframe失败，记录错误并回退到占位符
+            // eslint-disable-next-line no-console
+            console.error("渲染同源iframe失败，使用占位符替代", sameOriginError)
+            // 继续执行下面的占位符代码
+          }
+        }
+
+        // 创建一个占位canvas，用于显示iframe的提示信息
+        const tempCanvas = document.createElement('canvas')
+        // 设置canvas尺寸为iframe的实际尺寸
+        tempCanvas.width = elementWidth
+        tempCanvas.height = elementHeight
+
+        const ctx = tempCanvas.getContext('2d')
+
+        // 绘制iframe占位背景
+        ctx.fillStyle = '#f5f5f5'
+        ctx.fillRect(0, 0, elementWidth, elementHeight)
+
+        // 绘制边框
+        ctx.strokeStyle = '#cccccc'
+        ctx.lineWidth = 2
+        ctx.strokeRect(2, 2, elementWidth - 4, elementHeight - 4)
+
+        // 绘制iframe图标
+        const iconSize = Math.min(elementWidth, elementHeight) * 0.2
+        const iconX = (elementWidth - iconSize) / 2
+        const iconY = (elementHeight - iconSize) / 2 - 20
+
+        // 绘制简单的iframe图标
+        ctx.fillStyle = '#999999'
+        ctx.fillRect(iconX, iconY, iconSize, iconSize)
+        ctx.strokeStyle = '#ffffff'
+        ctx.lineWidth = 3
+        ctx.strokeRect(iconX + iconSize * 0.2, iconY + iconSize * 0.2, iconSize * 0.6, iconSize * 0.6)
+
+        // 绘制提示文本
+        ctx.fillStyle = '#666666'
+        ctx.font = `${Math.max(12, Math.min(16, elementWidth / 30))}px Arial`
+        ctx.textAlign = 'center'
+        ctx.textBaseline = 'middle'
+
+        // 获取iframe的源URL
+        const iframeSrc = element.src || '外部内容'
+        const displaySrc = iframeSrc.length > 40 ? `${iframeSrc.substring(0, 37)}...` : iframeSrc
+
+        // 绘制多行文本
+        if (isSameOrigin) {
+          ctx.fillText('同源iframe内容渲染失败', elementWidth / 2, elementHeight / 2 + iconSize / 2 + 10)
+          ctx.fillText('(可能是由于内容复杂或动态加载)', elementWidth / 2, elementHeight / 2 + iconSize / 2 + 35)
+        } else {
+          ctx.fillText('iframe内容无法导出', elementWidth / 2, elementHeight / 2 + iconSize / 2 + 10)
+          ctx.fillText('(受浏览器安全限制)', elementWidth / 2, elementHeight / 2 + iconSize / 2 + 35)
+        }
+        ctx.fillText(displaySrc, elementWidth / 2, elementHeight / 2 + iconSize / 2 + 60)
+
+        // 计算PDF中的高度
+        const height = (width / elementWidth) * elementHeight
+
+        // 转换为图片数据
+        const canvasData = tempCanvas.toDataURL('image/jpeg', 1.0)
+
+        // 返回处理结果
+        return { width, height, data: canvasData, needSplit: false }
+      } catch (iframeError) {
+        // eslint-disable-next-line no-console
+        console.error("处理iframe元素失败", iframeError)
+
+        // 创建一个简单的占位符作为备选方案
+        try {
+          const elementWidth = element.offsetWidth || 600
+          const elementHeight = element.offsetHeight || 400
+          const tempCanvas = document.createElement('canvas')
+          tempCanvas.width = elementWidth
+          tempCanvas.height = elementHeight
+
+          const ctx = tempCanvas.getContext('2d')
+          ctx.fillStyle = '#eeeeee'
+          ctx.fillRect(0, 0, elementWidth, elementHeight)
+          ctx.fillStyle = '#666666'
+          ctx.font = '14px Arial'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'middle'
+          ctx.fillText('iframe (无法导出)', elementWidth / 2, elementHeight / 2)
+
+          const height = (width / elementWidth) * elementHeight
+          const canvasData = tempCanvas.toDataURL('image/jpeg', 0.8)
+
+          return { width, height, data: canvasData, needSplit: false }
+        } catch (fallbackError) {
+          // 如果备选方案也失败，返回空结果
+          // eslint-disable-next-line no-console
+          console.error("创建iframe占位符失败", fallbackError)
+        }
+      }
+    }
+
+    // 检查元素高度，如果过高但有子元素，则返回需要分割
+    if (element.scrollHeight > MAX_CANVAS_HEIGHT / (window.devicePixelRatio * 2)) {
+      // 检查是否有子元素
+      const hasChildElements = [...element.childNodes].some((node) => node.nodeType === 1)
+
+      if (hasChildElements) {
+        // eslint-disable-next-line no-console
+        console.log("元素过高需要切分 - 预检测", element.scrollHeight)
+        return { needSplit: true, height: element.scrollHeight * window.devicePixelRatio * 2 }
+      }
+    }
+
+    // canvas元素
+    const canvas = await html2canvas(element, {
+      allowTaint: true, // 允许渲染跨域图片
+      scale: window.devicePixelRatio * 2, // 增加清晰度window.devicePixelRatio * 2
+      useCORS: true,// 允许跨域
+      windowHeight: element.scrollHeight,
+      backgroundColor: opt?.backgroundColor, // 内容区域背景色
+      logging: false, // 禁用日志以提高性能
+    })
+
+    // 获取canvas转化后的宽度
+    const canvasWidth = canvas.width
+    // 获取canvas转化后的高度
+    const canvasHeight = canvas.height
+
+    if (canvasHeight > MAX_CANVAS_HEIGHT) {
+      // 如果元素没有子元素但仍然过高，尝试强制渲染
+      const hasChildElements = [...element.childNodes].some((node) => node.nodeType === 1)
+
+      if (!hasChildElements) {
+        // 尝试强制渲染，但会警告
+        // eslint-disable-next-line no-console
+        console.warn("元素过高但没有子元素可以切分，尝试强制渲染", element, canvasHeight)
+
+        try {
+          // 高度转化为PDF的高度
+          const height = (width / canvasWidth) * canvasHeight
+          // 转化成图片Data - 使用较低质量以减小内存占用
+          const canvasData = canvas.toDataURL('image/jpeg', 0.8)
+          const context = canvas.getContext("2d")
+          context.clearRect(0, 0, canvasWidth, canvasHeight)
+          return { width, height, data: canvasData, needSplit: false }
+        } catch (error) {
+          // eslint-disable-next-line no-console
+          console.error("强制渲染过高元素失败", error)
+          return { needSplit: true, height: canvasHeight }
+        }
+      }
+
+      return { needSplit: true, height: canvasHeight }
+    }
+
+    // 高度转化为PDF的高度
+    const height = (width / canvasWidth) * canvasHeight
+    // 转化成图片Data
+    const canvasData = canvas.toDataURL('image/jpeg', 1.0)
+    const context = canvas.getContext("2d")
+    context.clearRect(0, 0, canvasWidth, canvasHeight)
+    return { width, height, data: canvasData, needSplit: false }
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("渲染元素到Canvas时出错", element, error)
+    return { width: 0, height: 0, data: null, needSplit: false }
   }
-  // 高度转化为PDF的高度
-  const height = (width / canvasWidth) * canvasHeight
-  // 转化成图片Data
-  const canvasData = canvas.toDataURL('image/jpeg', 1.0)
-  const context = canvas.getContext("2d")
-  //   console.log(canvasData)
-  context.clearRect(0, 0, canvasWidth, canvasHeight)
-  return { width, height, data: canvasData, }
 }
 
 /**
@@ -329,13 +529,13 @@ export const calcHtmlSizeByPdfSize = ({pdfSize, ...rest}) => {
 }
 
 /**
- * 获取元素上边距
+ * 检查元素样式，提供警告信息
  * 该方法经测试对时间消耗可以忽略不计
  * @param {HTMLElement} element 元素
- * @param {boolean} [isBaseElement=false] 是否当前canvas根元素
- * @returns {{top: number, bottom: number}}
+ * @param {boolean} [_isBaseElement=false] 是否当前canvas根元素 (保留参数但不使用)
+ * @returns {void}
  */
-export const checkElementStyle = (element, isBaseElement = false) => {
+export const checkElementStyle = (element, _isBaseElement = false) => {
   const style = window.getComputedStyle(element)
   const assertStyle = (styleName, cb, msg) => {
     const v = style.getPropertyValue(styleName)
@@ -345,5 +545,6 @@ export const checkElementStyle = (element, isBaseElement = false) => {
     }
   }
   assertStyle("z-index", (v) => v && v !== "auto" && v > 0, "z-index在PDF无效如果导出效果和页面不一致请通过顺序调整上下关系")
-  // assertStyle("margin-top", (v) => v && isBaseElement, "当前元素由于上级元素过高自动拆分导致margin-top无效")
+  // 注意：以下代码被注释掉，但保留以供参考
+  // assertStyle("margin-top", (v) => v && _isBaseElement, "当前元素由于上级元素过高自动拆分导致margin-top无效")
 }
