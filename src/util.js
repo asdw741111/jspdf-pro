@@ -21,6 +21,61 @@ export const FOOTER_PAGE_NOW_CLASS = 'pdf-footer-page'
 /** 页脚总页数元素对应class */
 export const FOOTER_PAGE_TOTAL_CLASS = 'pdf-footer-page-total'
 
+const CANVAS_IMAGE_TYPE = 'image/jpeg'
+
+/**
+ * 计算scale
+ * @param {HTMLElement} canvas 元素
+ * @param {string} mimeType 图片类型
+ * @param {number} maxDataUrlSizeInBytes 最大dataurl尺寸(长度)，如果超出当前浏览器限制会渲染不出来
+ * @returns scale
+ */
+const calculateScale = (canvas, mimeType = CANVAS_IMAGE_TYPE, maxDataUrlSizeInBytes = 8 * 1024 * 1024) => {
+  const ctx = canvas.getContext('2d')
+  const originalWidth = canvas.width
+  const originalHeight = canvas.height
+
+  // 初始尝试获取原始大小的 dataURL
+  let dataURL = canvas.toDataURL(mimeType)
+  const len = dataURL.length
+  const MIN_VALID_LENGTH = 10
+  if (len < MIN_VALID_LENGTH) {
+    // eslint-disable-next-line no-console
+    console.error('元素通过canvas生成dataURL失败, 超过浏览器限制, 请调整元素', canvas)
+    return 0
+  }
+
+  if (len <= maxDataUrlSizeInBytes) {
+    return 1 // 如果初始大小已经符合要求，则不需要缩放
+  }
+
+
+  // 计算缩放比例
+  let scale = Math.sqrt(maxDataUrlSizeInBytes / dataURL.length)
+
+  // 调整 canvas 尺寸并重新绘制内容
+  const scaledCanvas = document.createElement('canvas')
+  scaledCanvas.width = originalWidth * scale
+  scaledCanvas.height = originalHeight * scale
+  const scaledCtx = scaledCanvas.getContext('2d')
+  scaledCtx.drawImage(canvas, 0, 0, scaledCanvas.width, scaledCanvas.height)
+
+  // 获取新的 dataURL 并检查是否符合要求
+  dataURL = scaledCanvas.toDataURL(mimeType)
+  while (dataURL.length > maxDataUrlSizeInBytes && scale > 0.1) { // 设置最小scale为0.1防止无限循环
+    scale *= 0.9 // 细微调整scale
+    scaledCanvas.width = originalWidth * scale
+    scaledCanvas.height = originalHeight * scale
+    scaledCtx.drawImage(canvas, 0, 0, scaledCanvas.width, scaledCanvas.height)
+    dataURL = scaledCanvas.toDataURL(mimeType)
+  }
+
+  // 清理临时canvas
+  scaledCanvas.remove()
+
+  return scale
+}
+
 /**
  * 十六进制颜色转rgb
  * @param {string} hex 十六进制颜色
@@ -50,6 +105,18 @@ export const getMargin = (element) => {
     bottom: marginBottom ? marginBottom.replace("px", "") * 1 : 0,
   }
 }
+
+/**
+ *  获取canvas数据
+ * @param {HTMLCanvasElement} canvas canvas
+ * @returns 数据
+ */
+const canvasToData = (canvas) => new Promise((resolve, reject) => {
+  canvas.toBlob((data) => {
+    resolve(data)
+  }, CANVAS_IMAGE_TYPE, window.devicePixelRatio * 2)
+})
+
 /**
  * 获取元素生成canvas的高度
  * @param {HTMLElement} element ele
@@ -125,7 +192,7 @@ export async function toCanvas (element, width, opt) {
             const height = (width / elementWidth) * elementHeight
 
             // 转换为图片数据
-            const canvasData = iframeCanvas.toDataURL('image/jpeg', 1.0)
+            const canvasData = iframeCanvas.toDataURL(CANVAS_IMAGE_TYPE, 1.0)
 
             // 返回处理结果
             return { width, height, data: canvasData, needSplit: false }
@@ -190,7 +257,7 @@ export async function toCanvas (element, width, opt) {
         const height = (width / elementWidth) * elementHeight
 
         // 转换为图片数据
-        const canvasData = tempCanvas.toDataURL('image/jpeg', 1.0)
+        const canvasData = tempCanvas.toDataURL(CANVAS_IMAGE_TYPE, 1.0)
 
         // 返回处理结果
         return { width, height, data: canvasData, needSplit: false }
@@ -216,7 +283,7 @@ export async function toCanvas (element, width, opt) {
           ctx.fillText('iframe (无法导出)', elementWidth / 2, elementHeight / 2)
 
           const height = (width / elementWidth) * elementHeight
-          const canvasData = tempCanvas.toDataURL('image/jpeg', 0.8)
+          const canvasData = tempCanvas.toDataURL(CANVAS_IMAGE_TYPE, 0.8)
 
           return { width, height, data: canvasData, needSplit: false }
         } catch (fallbackError) {
@@ -264,10 +331,37 @@ export async function toCanvas (element, width, opt) {
         console.warn("元素过高但没有子元素可以切分，尝试强制渲染", element, canvasHeight)
 
         try {
-          // 高度转化为PDF的高度
+          // 方法1: 尝试分片渲染 - 将高元素分成多个小片段渲染
+          if (element.tagName === 'IMG' || element.tagName === 'CANVAS') {
+            // 对于图片或Canvas元素，使用分片渲染
+            const pieceHeight = MAX_CANVAS_HEIGHT / (window.devicePixelRatio * 2)
+            const pieces = Math.ceil(canvasHeight / pieceHeight)
+            const tempCanvas = document.createElement('canvas')
+            tempCanvas.width = canvasWidth
+            tempCanvas.height = canvasHeight
+            const tempCtx = tempCanvas.getContext('2d')
+
+            // 分片绘制到临时canvas
+            for (let i = 0; i < pieces; i++) {
+              const sourceY = i * pieceHeight
+              tempCtx.drawImage(canvas, 0, sourceY, canvasWidth, Math.min(pieceHeight, canvasHeight - sourceY),
+                0, sourceY, canvasWidth, Math.min(pieceHeight, canvasHeight - sourceY))
+            }
+
+            // 高度转化为PDF的高度
+            const height = (width / canvasWidth) * canvasHeight
+            // const canvasData = await canvasToData(tempCanvas)
+            const t = calculateScale(tempCanvas)
+            const scale = Math.min(t, 1)
+            console.error('scale', scale, t)
+            const canvasData = tempCanvas.toDataURL(CANVAS_IMAGE_TYPE, scale)
+            tempCtx.clearRect(0, 0, canvasWidth, canvasHeight)
+            return { width, height, data: canvasData, needSplit: false }
+          }
+
+          // 原有的备选方案
           const height = (width / canvasWidth) * canvasHeight
-          // 转化成图片Data - 使用较低质量以减小内存占用
-          const canvasData = canvas.toDataURL('image/jpeg', 0.8)
+          const canvasData = canvas.toDataURL(CANVAS_IMAGE_TYPE, 0.8)
           const context = canvas.getContext("2d")
           context.clearRect(0, 0, canvasWidth, canvasHeight)
           return { width, height, data: canvasData, needSplit: false }
@@ -284,7 +378,7 @@ export async function toCanvas (element, width, opt) {
     // 高度转化为PDF的高度
     const height = (width / canvasWidth) * canvasHeight
     // 转化成图片Data
-    const canvasData = canvas.toDataURL('image/jpeg', 1.0)
+    const canvasData = canvas.toDataURL(CANVAS_IMAGE_TYPE, 1.0)
     const context = canvas.getContext("2d")
     context.clearRect(0, 0, canvasWidth, canvasHeight)
     return { width, height, data: canvasData, needSplit: false }
