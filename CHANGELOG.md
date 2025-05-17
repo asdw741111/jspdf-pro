@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.11](https://github.com/asdw741111/jspdf-pro/compare/v0.1.9...v0.1.11) (2025-05-17)
+
+
+### Features
+
+* 支持导出iframe ([e2ddd4d](https://github.com/asdw741111/jspdf-pro/commit/e2ddd4d106df487df51b8c72585611cdaf704c23))
+
 ### [0.1.10](https://github.com/asdw741111/jspdf-pro/compare/v0.1.9...v0.1.10) (2025-02-11)
 
 ### [0.1.9](https://github.com/asdw741111/jspdf-pro/compare/v0.1.8...v0.1.9) (2025-02-10)

@@ -1,6 +1,6 @@
 {
   "name": "jspdf-pro",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "jspdf+html2canvas生成pdf并解决过长导致的canvas空白问题并支持自动分页、跨页处理",
   "main": "dist/index.js",
   "typings": "dist/types/index.d.ts",
