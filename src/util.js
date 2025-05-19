@@ -107,17 +107,6 @@ export const getMargin = (element) => {
 }
 
 /**
- *  获取canvas数据
- * @param {HTMLCanvasElement} canvas canvas
- * @returns 数据
- */
-const canvasToData = (canvas) => new Promise((resolve, reject) => {
-  canvas.toBlob((data) => {
-    resolve(data)
-  }, CANVAS_IMAGE_TYPE, window.devicePixelRatio * 2)
-})
-
-/**
  * 获取元素生成canvas的高度
  * @param {HTMLElement} element ele
  * @returns 高度
@@ -350,10 +339,8 @@ export async function toCanvas (element, width, opt) {
 
             // 高度转化为PDF的高度
             const height = (width / canvasWidth) * canvasHeight
-            // const canvasData = await canvasToData(tempCanvas)
             const t = calculateScale(tempCanvas)
             const scale = Math.min(t, 1)
-            console.error('scale', scale, t)
             const canvasData = tempCanvas.toDataURL(CANVAS_IMAGE_TYPE, scale)
             tempCtx.clearRect(0, 0, canvasWidth, canvasHeight)
             return { width, height, data: canvasData, needSplit: false }
@@ -556,11 +543,14 @@ export const updateCrossPos = (top, {baseTop, pages, originalPageHeight, height}
     checkElementHeight(top, height, pages, originalPageHeight)
     return
   }
-  if (top - (pages.length > 0 ? pages[pages.length - 1] : 0) >= originalPageHeight) {
+  const lastPageTop = pages.length > 0 ? pages[pages.length - 1] : 0
+  // const lastPageTop = pages.length > 1 ? pages[pages.length - 1] : pages.length === 1 ? -pages[0] : 0
+
+  if (top - (lastPageTop) >= originalPageHeight) {
     // 如果高度已经超过当前页，则证明可以分页了
-    pages.push((pages.length > 0 ? pages[pages.length - 1] : 0) + originalPageHeight)
-  } else if ((top + height - (pages.length > 0 ? pages[pages.length - 1] : 0) > originalPageHeight)
-    && (top !== (pages.length > 0 ? pages[pages.length - 1] : 0))) {
+    pages.push((lastPageTop) + originalPageHeight)
+  } else if ((top + height - (lastPageTop) > originalPageHeight)
+    && (top !== (lastPageTop))) {
     // 若 距离当前页顶部的高度 加上元素自身的高度 大于 一页内容的高度, 则证明元素跨页，将当前高度作为分页位置
     pages.push(top)
   }

@@ -71,7 +71,7 @@ export class Html2Pdf {
     totalPage: 0,
     startTime: 0,
     contentWidth: 550,
-    canvasHeight: new Map(),
+    canvasHeight: new Map(), // map可以将element作为key，不会出现问题
     margin: {left: (A4_WIDTH - 550) / 2, top: 0,bottom: 0},
     styleCheckEnable: true,
     pageBackgroundColor: undefined,
@@ -312,6 +312,8 @@ export class Html2Pdf {
 
     // PDF内容宽度 和 在HTML中宽度 的比， 用于将 元素在网页的高度 转化为 PDF内容内的高度， 将 元素距离网页顶部的高度  转化为 距离Canvas顶部的高度
     const rate = contentWidth / elementWidth
+    // eslint-disable-next-line no-console
+    console.log('Current Page Size Rate(pdf / page) is', rate)
 
     // 一页的高度， 转换宽度为一页元素的宽度
     let canvasResult = { width: 0, height: 0, data: null, needSplit: false }
@@ -560,11 +562,12 @@ export class Html2Pdf {
           width: PAGE_WIDTH, height: baseY, pdf, pageBackgroundColor: this.#data.pageBackgroundColor,
         })
       }
-      // 将 内容 与 页脚之间留空留白的部分进行遮白处理
+      // 将页脚下边的部分进行遮白处理
       if (this.#data.margin.bottom) {
+        const _height = this.#data.margin.bottom + (pdf.getNumberOfPages() > this.#data.skipPage ? footerHeight : 0)
         addBlank({
-          x: 0, y: PAGE_HEIGHT - this.#data.margin.bottom - (pdf.getNumberOfPages() > this.#data.skipPage ? footerHeight : 0),
-          width: PAGE_WIDTH, height: this.#data.margin.bottom + (pdf.getNumberOfPages() > this.#data.skipPage ? footerHeight : 0),
+          x: 0, y: PAGE_HEIGHT - _height,
+          width: PAGE_WIDTH, height: _height,
           pdf, pageBackgroundColor: this.#data.pageBackgroundColor
         })
       }
