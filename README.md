@@ -127,6 +127,38 @@ html2canvas在绘制div到img时忽略了z索引，只遵循div的顺序，所�
 ### 2. margin-top塌陷
 这是css盒子模型问题，如果一个元素前边没有兄弟元素，给它设置了margin-top本意是距离父元素有间距，但是间距效果会到父元素上。解决办法是给父元素设置overflow:hidden
 
+### 3. margin重叠
+> 注意：文字出现被截断、跨页节点截断等情况很多都是这个原因导致的
+
+当两个相邻的垂直元素分别设置了 margin-bottom 和 margin-top 时，这两个外边距会发生重叠（合并），这种现象在 CSS 中称为 margin collapsing（外边距折叠）。
+
+这是 CSS 盒模型的一个设计特性，主要发生在以下情况：
+
+- 相邻的块级元素
+- 垂直方向的外边距（水平方向不会重叠）
+- 没有边框、内边距或内容分隔
+
+示例
+```html
+<div class="box1" style="margin-bottom: 50px;">Box 1</div>
+<div class="box2" style="margin-top: 30px;">Box 2</div>
+```
+实际效果是两个 div 之间的间距是 50px（取两者中较大的值），而不是 50px + 30px = 80px。
+
+Margin 重叠的计算规则:
+| 情况  | 计算方式  |
+|---|---|
+| 两个正数  |  取最大值 |
+| 一正一负  |  正值减去负值的绝对值 |
+|  两个负数 | 0 - 最大的绝对值  |
+
+
+如果你不希望外边距重叠，可以使用以下方法：
+1. 用padding替代margin
+2. 添加边框或内边距: 父节点添加：border-bottom: 1px solid transparent; /* 透明边框 */
+3. 使用overflow属性: 父节点添加：overflow: auto; /* 或 hidden */
+4. 使用 CSS 的 display: flow-root (父节点添加)
+
 ## TODO
 - [x] 样式检查避免某些兼容问题导致导出pdf效果不一致
 - [x] 页眉页脚如果有部分页面跳过需要特殊处理

@@ -507,7 +507,7 @@ export class Html2Pdf {
         } else {
           // 对于普通元素，则判断是否高度超过分页值，并且深入
           // 执行位置更新操作
-          updateNomalElPos(top, {baseTop, pages, originalPageHeight, height: rate * offsetHeight})
+          updateNomalElPos(top, {baseTop, pages, originalPageHeight, height: rate * offsetHeight, leaf: !one.firstElementChild})
           // 遍历子节点
           traversingNodes(one.childNodes)
         }
