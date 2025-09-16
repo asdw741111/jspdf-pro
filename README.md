@@ -27,6 +27,121 @@ yarn add jspdf-pro
 import { createPDF } from "jspdf-pro"
 // 导出 内容区域宽度默认550
 createPDF(document.getElementById("pdf")).toPdf("这是文件名.pdf")
+
+// 自定义宽度
+createPDF(document.getElementById("pdf"))
+  .contentWidth(400)
+  .toPdf("自定义宽度.pdf")
+```
+
+### 高级配置示例
+```js
+import { createPDF } from "jspdf-pro"
+
+// 完整配置示例
+const pdf = createPDF(document.getElementById("pdf-container"))
+  .contentWidth(500) // 设置内容宽度
+  .margin({left: 30, top: 40, bottom: 30}) // 设置边距
+  .header(document.getElementById("custom-header"), {skipPage: 1}) // 设置页眉，跳过第一页
+  .footer(document.getElementById("custom-footer"), {
+    skipPage: 1,
+    pageNumSelector: '.current-page',
+    pageTotalSelector: '.total-pages'
+  }) // 设置页脚
+  .setClassControlFilter("isLeafWithoutDeepFilter", (v) =>
+    ["el-table__row", "ant-table-row", "table-row"].includes(v)
+  ) // 表格行跨页处理
+  .setStyleCheck(true) // 开启样式检查
+  .setPageBackgroundColor("#ffffff") // 页面背景色
+  .setContentBackgroundColor("#f9f9f9") // 内容区域背景色
+  .onProgress((currentPage, totalPages) => {
+    console.log(`导出进度: ${currentPage}/${totalPages} (${(currentPage/totalPages*100).toFixed(1)}%)`)
+  })
+
+// 执行导出
+pdf.toPdf("完整配置示例.pdf").catch(error => {
+  console.error("导出失败:", error)
+})
+```
+
+### 表格导出优化
+```js
+import { createPDF } from "jspdf-pro"
+
+// Element UI 表格导出
+createPDF(document.getElementById("el-table-container"))
+  .setClassControlFilter("isLeafWithoutDeepFilter", (v) =>
+    ["el-table__row"].includes(v)
+  )
+  .forcePageTotal(true) // 强制计算总页数，用于表格分页
+  .toPdf("Element表格导出.pdf")
+
+// Ant Design 表格导出
+createPDF(document.getElementById("ant-table-container"))
+  .setClassControlFilter("isLeafWithoutDeepFilter", (v) =>
+    ["ant-table-row"].includes(v)
+  )
+  .toPdf("Ant表格导出.pdf")
+```
+
+### 动态内容导出
+```js
+import { createPDF } from "jspdf-pro"
+
+// 等待动态内容加载完成
+async function exportDynamicContent() {
+  // 等待数据加载
+  await loadData()
+  
+  // 等待动画完成
+  await new Promise(resolve => setTimeout(resolve, 1000))
+  
+  // 导出
+  createPDF(document.getElementById("dynamic-content"))
+    .toPdf("动态内容导出.pdf")
+}
+
+// 带用户交互的导出
+function exportWithUserConfig() {
+  const userConfig = getUserConfig() // 获取用户配置
+  
+  createPDF(document.getElementById("configurable-content"))
+    .contentWidth(userConfig.width || 550)
+    .margin({
+      left: userConfig.marginLeft || 40,
+      top: userConfig.marginTop || 40,
+      bottom: userConfig.marginBottom || 20
+    })
+    .toPdf("用户配置导出.pdf")
+}
+```
+
+### 批量导出
+```js
+import { createPDF } from "jspdf-pro"
+
+// 批量导出多个元素
+async function batchExport() {
+  const elements = document.querySelectorAll('.export-item')
+  
+  for (let i = 0; i < elements.length; i++) {
+    const element = elements[i]
+    const fileName = `导出文件_${i + 1}.pdf`
+    
+    try {
+      await createPDF(element)
+        .toPdf(fileName)
+      console.log(`成功导出: ${fileName}`)
+    } catch (error) {
+      console.error(`导出失败: ${fileName}`, error)
+    }
+    
+    // 添加延迟避免内存问题
+    if (i < elements.length - 1) {
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+  }
+}
 ```
 
 ### 带页眉页脚导出
@@ -52,6 +167,20 @@ document.getElementById("export").onclick = () => {
 
 ```
 
+### 方向设置
+```js
+import { createPDF } from "jspdf-pro"
+// 设置为横向导出
+createPDF(document.getElementById("pdf"))
+  .changeOrientation('l') // 'l'为横向，'p'为纵向（默认）
+  .toPdf("横向导出.pdf")
+
+// 设置为纵向导出（默认）
+createPDF(document.getElementById("pdf"))
+  .changeOrientation('p')
+  .toPdf("纵向导出.pdf")
+```
+
 ### 取消导出
 ```js
 import { createPDF } from "jspdf-pro"
@@ -71,6 +200,19 @@ setTimeout(() => {
 }, 1000)
 
 ```
+
+### iframe支持
+```js
+import { createPDF } from "jspdf-pro"
+// 支持iframe元素导出，会自动处理同源iframe
+createPDF(document.getElementById("pdf-container"))
+  .toPdf("包含iframe的文档.pdf")
+```
+
+**iframe处理说明：**
+- 支持同源iframe的自动渲染
+- 跨域iframe会显示为占位符，包含提示信息
+- 如果iframe内容复杂或动态加载，可能需要额外处理
 
 ### 工具函数
 ```js
@@ -105,6 +247,14 @@ pdf实例方法说明
 - `setPageBackgroundColor` 设置页面背景色，默认白色
 - `setContentBackgroundColor` 设置内容区域背景色，不包括上下左右边距、页眉页脚，默认白色
 - `cancel` 取消导出，会抛出Error，可以在render函数的catch捕获
+- `getPageWidth` 获取PDF页面宽度
+- `getPageHeight` 获取PDF页面高度
+- `changeOrientation` 调整页面方向，'l'为横向，'p'为纵向
+- `getElementCanvasHeight` 获取元素的canvas高度
+- `isElementOverflowCanvas` 判断元素是否超出canvas最大高度限制
+- `getElementTop` 计算元素距离页面顶部的高度
+- `getMargin` 获取元素的上下边距
+- `checkElementStyle` 检查元素样式并提供警告信息
 
 ### setClassControlFilter说明
 用于根据元素class控制是否跨页等，用于想要动态控制或者无法设置为`pdf-break-page`等内置class的情况，支持的过滤器包括：
@@ -158,6 +308,108 @@ Margin 重叠的计算规则:
 2. 添加边框或内边距: 父节点添加：border-bottom: 1px solid transparent; /* 透明边框 */
 3. 使用overflow属性: 父节点添加：overflow: auto; /* 或 hidden */
 4. 使用 CSS 的 display: flow-root (父节点添加)
+
+## 性能优化建议
+
+### 1. 关闭样式检查
+对于已经测试过的页面，可以关闭样式检查以提高导出速度：
+```js
+createPDF(document.getElementById("pdf"))
+  .setStyleCheck(false) // 关闭样式检查
+  .toPdf("优化导出.pdf")
+```
+
+### 2. 避免重复渲染
+如果需要多次导出同一个内容，可以缓存PDF实例：
+```js
+const pdf = createPDF(document.getElementById("pdf"))
+  .render() // 先渲染但不导出
+
+// 后续可以直接使用
+pdf.getPDF().save("导出1.pdf")
+pdf.getPDF().save("导出2.pdf")
+```
+
+### 3. 合理使用class控制
+- 对于不需要深度遍历的元素，使用 `pdf-not-calc-height` 或 `pdf-not-calc-height-group` class
+- 对于表格行等元素，使用 `isLeafWithoutDeepFilter` 过滤器
+- 避免过深的DOM嵌套
+
+### 4. 控制元素高度
+- 单个元素高度建议不超过42000像素（Canvas高度限制）
+- 对于超长内容，使用 `forcePageTotal(true)` 提前计算总页数
+
+### 5. 图片优化
+- 导出前压缩图片
+- 使用合适的图片格式（JPEG通常比PNG更适合PDF）
+
+## 错误处理
+
+### 1. 取消导出
+```js
+import { createPDF } from "jspdf-pro"
+
+const pdf = createPDF(document.getElementById("pdf"))
+pdf.toPdf("测试.pdf").catch(error => {
+  if (error.message === "已停止导出") {
+    console.log("导出已取消")
+  } else {
+    console.error("导出失败:", error)
+  }
+})
+
+// 取消导出
+setTimeout(() => {
+  pdf.cancel()
+}, 1000)
+```
+
+### 2. 处理渲染错误
+```js
+try {
+  await pdf.render()
+  pdf.getPDF().save("成功.pdf")
+} catch (error) {
+  console.error("渲染失败:", error)
+  // 可以在这里添加重试逻辑
+}
+```
+
+## 浏览器兼容性
+
+### 支持的浏览器
+- Chrome 60+
+- Firefox 55+
+- Safari 12+
+- Edge 79+
+
+### 注意事项
+1. **Canvas高度限制**：
+   - Chrome/Edge/Firefox: 最大约32,767像素
+   - Safari: 最大约16,384像素
+   - 本库自动处理超出限制的情况
+
+2. **跨域限制**：
+   - 跨域图片需要服务器设置CORS头
+   - 跨域iframe无法直接导出内容
+
+3. **内存使用**：
+   - 大型文档导出需要较多内存
+   - 建议在性能较好的设备上导出复杂文档
+
+## Canvas高度限制说明
+
+由于浏览器Canvas API的限制，单个Canvas的高度有最大值限制：
+- **Chrome/Edge/Firefox**: ~32,767px
+- **Safari**: ~16,384px
+
+当元素高度超过这些限制时，库会自动进行以下处理：
+1. 检测元素是否有子元素
+2. 如果有子元素，自动分割处理
+3. 如果没有子元素，尝试强制渲染并警告
+4. 对于图片等特殊元素，使用分片渲染技术
+
+这个限制是为了确保导出功能在所有浏览器中都能正常工作。
 
 ## TODO
 - [x] 样式检查避免某些兼容问题导致导出pdf效果不一致
