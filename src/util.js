@@ -346,15 +346,18 @@ export async function toCanvas (element, width, opt) {
             return { width, height, data: canvasData, needSplit: false }
           }
 
-          // 原有的备选方案
+          // 对于其他类型的过高元素，尝试使用缩放来减小dataURL大小
           const height = (width / canvasWidth) * canvasHeight
-          const canvasData = canvas.toDataURL(CANVAS_IMAGE_TYPE, 0.8)
+          const scale = calculateScale(canvas)
+          const finalScale = Math.min(scale, 1)
+          const canvasData = canvas.toDataURL(CANVAS_IMAGE_TYPE, finalScale)
           const context = canvas.getContext("2d")
           context.clearRect(0, 0, canvasWidth, canvasHeight)
           return { width, height, data: canvasData, needSplit: false }
         } catch (error) {
           // eslint-disable-next-line no-console
           console.error("强制渲染过高元素失败", error)
+          // 如果强制渲染失败，返回需要分割的标记，这样可以在上层进行其他处理
           return { needSplit: true, height: canvasHeight }
         }
       }

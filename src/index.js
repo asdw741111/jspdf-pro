@@ -347,6 +347,15 @@ export class Html2Pdf {
           console.warn("元素过高但没有子元素可以切分", element)
           // 尝试强制渲染元素，即使它超出了最大高度
           if (!justCalc && data) {
+            // 计算剩余页面高度
+            const remainingPageHeight = originalPageHeight - baseTop - (header ? await this.getElementCanvasHeight(header) * rate : 0) - this.#data.margin.top
+            if (height > remainingPageHeight) {
+              // 如果元素高度超过剩余页面高度，则需要分页
+              if (baseTop > 0) { // 如果不是第一页的开始位置，则添加新页面
+                pdf.addPage()
+                baseTop = 0
+              }
+            }
             addImage({
               x: this.#data.margin.left,
               y: baseTop + (header ? await this.getElementCanvasHeight(header) * rate : 0) + this.#data.margin.top,
