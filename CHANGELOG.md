@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+### [0.1.12](https://github.com/asdw741111/jspdf-pro/compare/v0.1.11...v0.1.12) (2026-08-12)
+
+
+### Bug Fixes
+
+* 某些情况下计算页数错误问题会丢失一些内容 ([df147ef](https://github.com/asdw741111/jspdf-pro/commit/df147efffcea81fb7e77cefce2546a7311ec836a))
+* 修复表格导出缺失行与跨页对齐问题 ([19489b8](https://github.com/asdw741111/jspdf-pro/commit/19489b81d252a838e0c052922f4a72438c8051c5))
+
+### [0.1.10](https://github.com/asdw741111/jspdf-pro/compare/v0.1.9...v0.1.10) (2025-02-11)
+
 ### [0.1.11](https://github.com/asdw741111/jspdf-pro/compare/v0.1.9...v0.1.11) (2025-05-17)
 
 
