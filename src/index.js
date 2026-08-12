@@ -312,8 +312,6 @@ export class Html2Pdf {
 
     // PDF内容宽度 和 在HTML中宽度 的比， 用于将 元素在网页的高度 转化为 PDF内容内的高度， 将 元素距离网页顶部的高度  转化为 距离Canvas顶部的高度
     const rate = contentWidth / elementWidth
-    // eslint-disable-next-line no-console
-    console.log('Current Page Size Rate(pdf / page) is', rate)
 
     // 一页的高度， 转换宽度为一页元素的宽度
     let canvasResult = { width: 0, height: 0, data: null, needSplit: false }
@@ -336,7 +334,7 @@ export class Html2Pdf {
       if (needSplit) {
         // 向下对子元素处理
         // eslint-disable-next-line no-console
-        console.log("元素过高需要切分", height, element)
+        console.warn("元素过高需要切分", height, element)
 
         const eles = element.childNodes
         // 检查是否有子元素
@@ -349,7 +347,7 @@ export class Html2Pdf {
           if (!justCalc && data) {
             addImage({
               x: this.#data.margin.left,
-              y: baseTop + (header ? await this.getElementCanvasHeight(header) * rate : 0) + this.#data.margin.top,
+              y: baseTop + (header ? await this.getElementCanvasHeight(header) : 0) + this.#data.margin.top,
               pdf, data, width, height,
               pageBackgroundColor: this.#data.pageBackgroundColor
             })
@@ -371,9 +369,6 @@ export class Html2Pdf {
         return subTop
       }
 
-      // Store canvas result for later use
-      this._currentCanvasResult = canvasResult
-
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error("渲染元素时出错", element, error)
@@ -381,11 +376,12 @@ export class Html2Pdf {
     }
 
     // 获取当前canvas结果
-    const { width, height, data } = this._currentCanvasResult || { width: 0, height: 0, data: null }
+    const { width, height, data } = canvasResult
 
     // 页脚元素 经过转换后在PDF页面的高度 TODO 这里需要缓存footer和header高度，避免重复计算，对性能影响很大
-    const footerHeight = (await this.getElementCanvasHeight(footer) * rate)
-    const headerHeight = (await this.getElementCanvasHeight(header) * rate)
+    // footer/header 高度已由 getElementCanvasHeight 按 contentWidth 折算为 PDF 坐标，不可再乘 rate
+    const footerHeight = await this.getElementCanvasHeight(footer)
+    const headerHeight = await this.getElementCanvasHeight(header)
 
     // 距离PDF左边的距离
     const baseX = this.#data.margin.left
@@ -474,7 +470,6 @@ export class Html2Pdf {
         const isLeafClass = hasClass(one, this.#controlClass.NORMAL_FINAL_CLASS)
         const isLeafWithDeep = checkClass(one, this.#filter.isLeafWithDeepFilter)
         const isElementCrossLeaf = getIsElementCrossLeaf(one)
-
         // 对需要处理分页的元素，计算是否跨界，若跨界，则直接将顶部位置作为分页位置，进行分页，且子元素不需要再进行判断
         const { offsetHeight } = one
         // 计算出最终高度
@@ -485,6 +480,10 @@ export class Html2Pdf {
         const margin = getMargin(one)
         lastMarginBottom = margin.bottom * rate
         const top = Math.max(0, rate * (offsetTop - margin.top))
+
+        // col/colgroup 仅为表格列定义，不渲染任何可见内容，但其 offsetHeight 会等于表格整体高度，
+        // 若参与分页会把整张表当作一个块切断。跳过它们（其本身也无需要遍历的子内容）
+        if (one.tagName === 'COL' || one.tagName === 'COLGROUP') continue
 
         // 对于需要进行分页且内部存在需要分页（即不属于深度终点）的元素进行处理
         if (isBreakPage) {
@@ -555,8 +554,6 @@ export class Html2Pdf {
       }
       // 将 内容 与 页眉之间留空留白的部分进行遮白处理
       if (baseY) {
-        // eslint-disable-next-line no-console
-        console.log("baseY", needOffset ? imgOffSet : baseY + headerHeight - pages[i], baseY, headerHeight)
         addBlank({
           x: 0, y: pdf.getNumberOfPages() > this.#data.headerSkip ? headerHeight : 0,
           width: PAGE_WIDTH, height: baseY, pdf, pageBackgroundColor: this.#data.pageBackgroundColor,

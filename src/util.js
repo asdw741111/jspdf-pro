@@ -81,11 +81,36 @@ const calculateScale = (canvas, mimeType = CANVAS_IMAGE_TYPE, maxDataUrlSizeInBy
  * @param {string} hex 十六进制颜色
  * @returns rgb
  */
-const hexToRgb = (hex) => {
-  const r = Number.parseInt(hex.substring(1, 3), 16)
-  const g = Number.parseInt(hex.substring(3, 5), 16)
-  const b = Number.parseInt(hex.substring(5, 7), 16)
-  return { r, g, b }
+const hexToRgb = (color) => {
+  if (!color || typeof color !== 'string') return { r: 255, g: 255, b: 255 }
+  let hex = color.trim()
+  // 支持 #fff / #ffffff
+  if (hex.startsWith('#')) {
+    hex = hex.slice(1)
+    if (hex.length === 3) {
+      hex = hex.split('').map((c) => c + c).join('')
+    }
+  }
+  if (/^[0-9a-fA-F]{6}$/.test(hex)) {
+    return {
+      r: Number.parseInt(hex.slice(0, 2), 16),
+      g: Number.parseInt(hex.slice(2, 4), 16),
+      b: Number.parseInt(hex.slice(4, 6), 16),
+    }
+  }
+  // 兜底：利用浏览器解析任意合法 CSS 颜色（含具名颜色 red/white/transparent 等）
+  try {
+    const ctx = document.createElement('canvas').getContext('2d')
+    ctx.fillStyle = color
+    const m = /^#([0-9a-f]{6})$/i.exec(ctx.fillStyle)
+    if (m) {
+      const v = m[1]
+      return { r: Number.parseInt(v.slice(0, 2), 16), g: Number.parseInt(v.slice(2, 4), 16), b: Number.parseInt(v.slice(4, 6), 16) }
+    }
+  } catch (e) {
+    // 忽略解析失败，回退默认白
+  }
+  return { r: 255, g: 255, b: 255 }
 }
 /**
  * 获取元素上边距
@@ -151,8 +176,6 @@ export async function toCanvas (element, width, opt) {
         try {
           // 尝试访问iframe的contentDocument，如果成功则为同源
           isSameOrigin = !!element.contentDocument
-          // eslint-disable-next-line no-console
-          console.log("iframe同源检查:", isSameOrigin, element.src)
         } catch (e) {
           // 如果出错，则不是同源
           isSameOrigin = false
@@ -161,9 +184,6 @@ export async function toCanvas (element, width, opt) {
         // 如果是同源iframe，尝试直接渲染其内容
         if (isSameOrigin && element.contentDocument && element.contentDocument.body) {
           try {
-            // eslint-disable-next-line no-console
-            console.log("尝试渲染同源iframe内容")
-
             // 获取iframe的文档
             const iframeDoc = element.contentDocument
 
@@ -290,7 +310,7 @@ export async function toCanvas (element, width, opt) {
 
       if (hasChildElements) {
         // eslint-disable-next-line no-console
-        console.log("元素过高需要切分 - 预检测", element.scrollHeight)
+        console.warn("元素过高需要切分 - 预检测", element.scrollHeight)
         return { needSplit: true, height: element.scrollHeight * window.devicePixelRatio * 2 }
       }
     }
@@ -362,10 +382,13 @@ export async function toCanvas (element, width, opt) {
       return { needSplit: true, height: canvasHeight }
     }
 
-    // 高度转化为PDF的高度
+      // 高度转化为PDF的高度
     const height = (width / canvasWidth) * canvasHeight
-    // 转化成图片Data
-    const canvasData = canvas.toDataURL(CANVAS_IMAGE_TYPE, 1.0)
+    // 普通元素也需限制 dataURL 大小，避免超大元素生成超限 dataURL 导致渲染失败/黑块
+    const scale = calculateScale(canvas)
+    const canvasData = scale > 0
+      ? canvas.toDataURL(CANVAS_IMAGE_TYPE, Math.min(scale, 1))
+      : canvas.toDataURL(CANVAS_IMAGE_TYPE, 1.0)
     const context = canvas.getContext("2d")
     context.clearRect(0, 0, canvasWidth, canvasHeight)
     return { width, height, data: canvasData, needSplit: false }
@@ -413,12 +436,18 @@ export async function addFooter ({total, pageNum, footer, pdf, contentWidth, pag
     pageTotalDom.innerText = total
   }
   const PAGE_WIDTH = pdf.getPageWidth()
-  document.documentElement.append(newFooter)
+  // 离屏固定宽度渲染：避免克隆体脱离原容器后按全视口宽度渲染、再被等比压扁；
+  // 宽度固定为 contentWidth，与 getElementCanvasHeight(footer) 的折算基准一致
+  newFooter.style.position = 'fixed'
+  newFooter.style.left = '-10000px'
+  newFooter.style.top = '0'
+  newFooter.style.width = `${contentWidth}px`
+  document.body.appendChild(newFooter)
   const { height: footerHeight, data: footerData, } = await toCanvas(newFooter, contentWidth)
   // 先填充空白防止左右两边留空渲染到表格等多余信息
   addBlank({x: 0, y: PAGE_HEIGHT - footerHeight, width: PAGE_WIDTH, height: footerHeight, pdf, pageBackgroundColor})
   pdf.addImage(footerData, 'JPEG', (PAGE_WIDTH - contentWidth) / 2, PAGE_HEIGHT - footerHeight, contentWidth, footerHeight)
-  document.documentElement.removeChild(newFooter)
+  document.body.removeChild(newFooter)
 }
 
 /**
@@ -494,9 +523,15 @@ export const getElementTop = (el) => {
  */
 const checkElementHeight = (top, height, pages, originalPageHeight) => {
   const morePage = Math.ceil((top - pages[pages.length - 1] + height) / originalPageHeight) - 1
-  if (morePage) {
-    for (let i = 0; i < morePage; i++) {
-      pages.push((pages.length > 0 ? pages[pages.length - 1] : 0) + originalPageHeight)
+  if (morePage > 0) {
+    if (height <= originalPageHeight) {
+      // 元素本身高度不足一页，但因起始位置靠后而跨页：把整块移到下一页，分页点取元素顶部，
+      // 避免从元素中间（如表格行、段落）被均匀网格切断
+      pages.push(top)
+    } else {
+      for (let i = 0; i < morePage; i++) {
+        pages.push((pages.length > 0 ? pages[pages.length - 1] : 0) + originalPageHeight)
+      }
     }
   }
 }
@@ -512,9 +547,17 @@ export const updateNomalElPos = (top, {baseTop, pages, originalPageHeight, heigh
   const firstBaseTop = baseTop && pages.length === 1
   if (firstBaseTop) {
     if (top + baseTop > originalPageHeight) {
-      pages.push(originalPageHeight - baseTop)
+      // 元素起点已超出首页内容区：整块移到下一页，分页点取元素顶部，
+      // 避免从元素中间（如表格行、段落）被均匀网格切断
+      pages.push(top)
     }
-  } else if (top - (pages.length > 0 ? pages[pages.length - 1] : 0) > originalPageHeight) {
+    // 判断高度，如果超出一页高度需要在这里提前添加好page信息确保当前元素能显示完整
+    if (leaf) {
+      checkElementHeight(top, height, pages, originalPageHeight)
+    }
+    return
+  }
+  if (top - (pages.length > 0 ? pages[pages.length - 1] : 0) > originalPageHeight) {
     pages.push((pages.length > 0 ? pages[pages.length - 1] : 0) + originalPageHeight)
   }
   // 判断高度，如果超出一页高度需要在这里提前添加好page信息确保当前元素能显示完整
@@ -536,7 +579,8 @@ export const updateCrossPos = (top, {baseTop, pages, originalPageHeight, height}
   const firstBaseTop = baseTop && pages.length === 1
   if (firstBaseTop) {
     if (top + baseTop >= originalPageHeight) {
-      pages.push(originalPageHeight - baseTop)
+      // 元素起点已超出首页内容区：整块移到下一页，分页点取元素顶部，避免从元素中间（表格行/段落）被切断
+      pages.push(top)
     } else if(top + baseTop + height > originalPageHeight) {
       pages.push(top)
     }
